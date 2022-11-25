@@ -62,5 +62,6 @@ $ sudo systemctl start telegram-d2-bot.service
 
 ## Todos
 
-- [ ] Send image files, not just xml(svg) files.
+- [x] Support sending .d2 files.
+- [ ] Response with image files, not just xml(svg) files.
 
