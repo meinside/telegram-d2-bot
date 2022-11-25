@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -81,6 +82,7 @@ func renderDiagram(str string) (bs []byte, err error) {
 	return nil, err
 }
 
+// checks if given `id` is allowed.
 func checkAllowance(allowedIds []string, id *string) bool {
 	if id == nil {
 		return false
@@ -95,55 +97,134 @@ func checkAllowance(allowedIds []string, id *string) bool {
 	return false
 }
 
+// renders .svg with given `text` and reply to `messageId` with it.
+func replyRendered(bot *tg.Bot, chatID, messageID int64, text string) {
+	// typing...
+	_ = bot.SendChatAction(chatID, tg.ChatActionTyping)
+
+	// render svg into bytes
+	if bs, err := renderDiagram(text); err == nil {
+		if sent := bot.SendDocument(
+			chatID,
+			tg.InputFileFromBytes(bs),
+			tg.OptionsSendDocument{}.
+				SetReplyToMessageID(messageID)); !sent.Ok {
+			log.Printf("failed to send rendered image: %s", *sent.Description)
+		}
+	} else {
+		log.Printf("failed to render message: %s", err)
+	}
+}
+
+// replies to `messageId` with `text`.
+func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
+	if sent := bot.SendMessage(
+		chatID,
+		text,
+		tg.OptionsSendMessage{}.
+			SetReplyToMessageID(messageID)); !sent.Ok {
+		log.Printf("failed to send rendered image: %s", *sent.Description)
+	}
+}
+
+// handles a text message
+func handleMessage(bot *tg.Bot, update tg.Update, allowedIds []string) {
+	username := update.Message.From.Username
+
+	if checkAllowance(allowedIds, username) {
+		message := *update.Message.Text
+		chatID := update.Message.Chat.ID
+
+		if strings.HasPrefix(message, "/") { // handle commands here
+			switch message {
+			case commandStart:
+				if sent := bot.SendMessage(
+					chatID,
+					messageStart,
+					tg.OptionsSendMessage{}.
+						SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+					log.Printf("failed to send start message: %s", *sent.Description)
+				}
+			}
+
+			// unhandled commands reach here
+		} else { // handle non-commands here
+			messageID := update.Message.MessageID
+
+			replyRendered(bot, chatID, messageID, message)
+		}
+	} else {
+		if username == nil {
+			log.Printf("received a message from an unauthorized user: '%s'", update.Message.From.FirstName)
+		} else {
+			log.Printf("received a message from an unauthorized user: @%s", *username)
+		}
+	}
+}
+
+func getURL(url string) (content []byte, err error) {
+	var res *http.Response
+	if res, err = http.Get(url); err != nil {
+		return nil, err
+	}
+
+	content, err = ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
+}
+
+// handles a document message
+func handleDocument(bot *tg.Bot, update tg.Update, allowedIds []string) {
+	username := update.Message.From.Username
+
+	if checkAllowance(allowedIds, username) {
+		document := *update.Message.Document
+		chatID := update.Message.Chat.ID
+		messageID := update.Message.MessageID
+
+		if document.FileName != nil && strings.HasSuffix(*document.FileName, ".d2") {
+			if file := bot.GetFile(document.FileID); file.Ok {
+				url := bot.GetFileURL(*file.Result)
+				if content, err := getURL(url); err == nil {
+					message := string(content)
+
+					replyRendered(bot, chatID, messageID, message)
+				} else {
+					log.Printf("failed to fetch '%s': %s", url, err)
+				}
+			} else {
+				log.Printf("failed to fetch file with id: %s", document.FileID)
+			}
+		} else {
+			if document.FileName != nil {
+				replyError(bot, chatID, messageID, fmt.Sprintf("'%s' does not seem to be a .d2 file.", *document.FileName))
+			}
+		}
+	} else {
+		if username == nil {
+			log.Printf("received a document from an unauthorized user: '%s'", update.Message.From.FirstName)
+		} else {
+			log.Printf("received a document from an unauthorized user: @%s", *username)
+		}
+	}
+}
+
 // generates a function for handling updates
 func updateHandleFunc(allowedIds []string) func(*tg.Bot, tg.Update, error) {
 	return func(bot *tg.Bot, update tg.Update, err error) {
-		if err == nil && update.HasMessage() && update.Message.HasText() {
-			username := update.Message.From.Username
-			if checkAllowance(allowedIds, username) {
-				message := *update.Message.Text
-				chatID := update.Message.Chat.ID
-
-				if strings.HasPrefix(message, "/") { // handle commands here
-					switch message {
-					case commandStart:
-						if sent := bot.SendMessage(
-							chatID,
-							messageStart,
-							tg.OptionsSendMessage{}.
-								SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
-							log.Printf("failed to send start message: %s", *sent.Description)
-						}
-					}
-
-					// unhandled commands reach here
-				} else { // handle non-commands here
-					// typing...
-					_ = bot.SendChatAction(chatID, tg.ChatActionTyping)
-
-					// render svg into bytes
-					if bs, err := renderDiagram(message); err == nil {
-						messageID := update.Message.MessageID
-						if sent := bot.SendDocument(
-							chatID,
-							tg.InputFileFromBytes(bs),
-							tg.OptionsSendDocument{}.
-								SetReplyToMessageID(messageID)); !sent.Ok {
-							log.Printf("failed to send rendered image: %s", *sent.Description)
-						}
-					} else {
-						log.Printf("failed to render message: %s", err)
-					}
-				}
-			} else {
-				if username == nil {
-					log.Printf("received an update from an unauthorized user: '%s'", update.Message.From.FirstName)
-				} else {
-					log.Printf("received an update from an unauthorized user: @%s", *username)
-				}
-			}
-		} else {
+		if err != nil {
 			log.Printf("failed to fetch update: %s", err)
+			return
+		}
+
+		if update.HasMessage() && update.Message.HasText() {
+			handleMessage(bot, update, allowedIds)
+		} else if update.Message.HasDocument() {
+			handleDocument(bot, update, allowedIds)
 		}
 	}
 }
