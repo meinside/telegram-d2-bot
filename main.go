@@ -30,7 +30,7 @@ const (
 	defaultMonitoringInterval = 5
 
 	commandStart = "/start"
-	messageStart = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files\.
+	messageStart = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
 	`
 	messageUsage = `Usage:
 
@@ -110,12 +110,12 @@ func checkAllowance(allowedIds []string, id *string) bool {
 	return false
 }
 
-// renders .svg with given `text` and reply to `messageId` with it.
+// renders a .png file with given `text` and reply to `messageId` with it.
 func replyRendered(bot *tg.Bot, chatID, messageID int64, text string) {
 	// typing...
 	_ = bot.SendChatAction(chatID, tg.ChatActionTyping)
 
-	// render svg into bytes
+	// render text into .svg and convert it to .png bytes
 	if bs, err := renderDiagram(text); err == nil {
 		if sent := bot.SendDocument(
 			chatID,

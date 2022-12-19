@@ -1,8 +1,10 @@
 # telegram-d2-bot
 
-A telegram bot which answers with rendered .svg files.
+A telegram bot which answers with rendered .svg files in .png format.
 
 Using [terrastruct/d2](https://github.com/terrastruct/d2) for generating .svg files from messages.
+
+<img width="631" alt="Screenshot 2022-12-19 at 14 31 53" src="https://user-images.githubusercontent.com/185988/208354666-fe073dbc-105a-44b3-88a0-dce64a454efc.png">
 
 ## Configuration
 
