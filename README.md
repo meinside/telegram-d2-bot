@@ -21,6 +21,14 @@ and edit:
 }
 ```
 
+## Other Dependencies
+
+[Playwright](https://github.com/playwright-community/playwright-go) is needed for exporting .png files:
+
+```bash
+$ npx playwright install-deps
+```
+
 ## Build and Run
 
 ```bash
@@ -62,6 +70,6 @@ $ sudo systemctl start telegram-d2-bot.service
 
 ## Todos
 
-- [x] Support sending .d2 files.
-- [ ] Response with image files, not just xml(svg) files.
+- [x] Support uploading .d2 files.
+- [x] Response with .png files. (Playwright is needed)
 
