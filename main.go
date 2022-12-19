@@ -18,10 +18,12 @@ import (
 	"oss.terrastruct.com/d2/d2renderers/d2svg"
 	"oss.terrastruct.com/d2/d2target"
 	"oss.terrastruct.com/d2/d2themes/d2themescatalog"
+	"oss.terrastruct.com/d2/lib/png"
 	"oss.terrastruct.com/d2/lib/textmeasure"
 
 	// telegram bot
 	tg "github.com/meinside/telegram-bot-go"
+	"github.com/playwright-community/playwright-go"
 )
 
 const (
@@ -58,7 +60,7 @@ func openConfig(filepath string) (conf config, err error) {
 	return config{}, err
 }
 
-// renderDiagram returns a bytes array of the rendered svg diagram.
+// renderDiagram returns a bytes array of the rendered svg diagram in .png format.
 func renderDiagram(str string) (bs []byte, err error) {
 	var graph *d2graph.Graph
 	if graph, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16: true}); err == nil {
@@ -68,11 +70,22 @@ func renderDiagram(str string) (bs []byte, err error) {
 				ctx := context.Background()
 				if err = d2dagrelayout.Layout(ctx, graph); err == nil {
 					var diagram *d2target.Diagram
-					// TODO: export/render to a .png file (not in .svg format)
 					if diagram, err = d2exporter.Export(ctx, graph, d2themescatalog.NeutralDefault.ID); err == nil {
 						var out []byte
 						if out, err = d2svg.Render(diagram); err == nil {
-							return out, nil
+							var pw png.Playwright
+							if pw, err = png.InitPlaywright(); err == nil {
+								defer func() {
+									e := pw.Cleanup()
+									if err == nil {
+										err = e
+									}
+								}()
+
+								if out, err = png.ConvertSVG(nil, pw.Page, out); err == nil {
+									return out, nil
+								}
+							}
 						}
 					}
 				}
@@ -262,6 +275,12 @@ func printUsage(progName string) {
 }
 
 func main() {
+	// install playwright browsers
+	if err := playwright.Install(); err != nil {
+		log.Printf("failed to install playwright browsers: %s", err)
+		return
+	}
+
 	if len(os.Args) > 1 {
 		runBot(os.Args[1])
 	} else {
