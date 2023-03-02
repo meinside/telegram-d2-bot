@@ -29,7 +29,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/goldmark v1.5.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
+	golang.org/x/crypto v0.0.0-20220314234659-1baeb1ce4c0b // indirect
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9 // indirect
 	golang.org/x/image v0.5.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
