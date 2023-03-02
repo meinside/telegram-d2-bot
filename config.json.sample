@@ -2,5 +2,6 @@
     "api_token": "xxxxxxxxyyyyyyyy-1234567",
     "allowed_ids": ["telegram_username_1"],
     "monitor_interval": 1,
+    "sketch": false,
     "is_verbose": false
 }
