@@ -19,6 +19,7 @@ and edit:
     "api_token": "xxxxxxxxyyyyyyyy-1234567",
     "allowed_ids": ["telegram_username_1", "telegram_username_2"],
     "monitor_interval": 5,
+    "sketch": false,
     "is_verbose": false
 }
 ```
