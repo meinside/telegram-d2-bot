@@ -143,15 +143,15 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 }
 
 // handles a text message
-func handleMessage(bot *tg.Bot, update tg.Update, allowedIds []string, sketch bool) {
-	username := update.Message.From.Username
+func handleMessage(bot *tg.Bot, message tg.Message, allowedIds []string, sketch bool) {
+	username := message.From.Username
 
 	if checkAllowance(allowedIds, username) {
-		message := *update.Message.Text
-		chatID := update.Message.Chat.ID
+		txt := *message.Text
+		chatID := message.Chat.ID
 
-		if strings.HasPrefix(message, "/") { // handle commands here
-			switch message {
+		if strings.HasPrefix(txt, "/") { // handle commands here
+			switch txt {
 			case commandStart:
 				if sent := bot.SendMessage(
 					chatID,
@@ -164,13 +164,13 @@ func handleMessage(bot *tg.Bot, update tg.Update, allowedIds []string, sketch bo
 
 			// unhandled commands reach here
 		} else { // handle non-commands here
-			messageID := update.Message.MessageID
+			messageID := message.MessageID
 
-			replyRendered(bot, chatID, messageID, message, sketch)
+			replyRendered(bot, chatID, messageID, txt, sketch)
 		}
 	} else {
 		if username == nil {
-			log.Printf("received a message from an unauthorized user: '%s'", update.Message.From.FirstName)
+			log.Printf("received a message from an unauthorized user: '%s'", message.From.FirstName)
 		} else {
 			log.Printf("received a message from an unauthorized user: @%s", *username)
 		}
@@ -237,7 +237,9 @@ func updateHandleFunc(allowedIds []string, sketch bool) func(*tg.Bot, tg.Update,
 		}
 
 		if update.HasMessage() && update.Message.HasText() {
-			handleMessage(bot, update, allowedIds, sketch)
+			handleMessage(bot, *update.Message, allowedIds, sketch)
+		} else if update.HasEditedMessage() && update.EditedMessage.HasText() {
+			handleMessage(bot, *update.EditedMessage, allowedIds, sketch)
 		} else if update.Message.HasDocument() {
 			handleDocument(bot, update, allowedIds, sketch)
 		}
