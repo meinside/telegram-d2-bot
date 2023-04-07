@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	// telegram bot
@@ -45,7 +46,7 @@ type config struct {
 func loadConfig(filepath string) (conf config, err error) {
 	if err == nil {
 		var bytes []byte
-		bytes, err = ioutil.ReadFile(filepath)
+		bytes, err = os.ReadFile(filepath)
 		if err == nil {
 			err = json.Unmarshal(bytes, &conf)
 			if err == nil {
@@ -183,8 +184,9 @@ func getURL(url string) (content []byte, err error) {
 		return nil, err
 	}
 
-	content, err = ioutil.ReadAll(res.Body)
 	defer res.Body.Close()
+
+	content, err = io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
