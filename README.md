@@ -1,6 +1,6 @@
 # telegram-d2-bot
 
-A telegram bot which answers with rendered .svg files in .png format.
+A telegram bot which answers with rendered `.svg` files in `.png` format.
 
 Using [terrastruct/d2](https://github.com/terrastruct/d2) for generating .svg files from messages.
 
@@ -19,10 +19,18 @@ and edit:
     "api_token": "xxxxxxxxyyyyyyyy-1234567",
     "allowed_ids": ["telegram_username_1", "telegram_username_2"],
     "monitor_interval": 5,
+    "theme_id": 0,
     "sketch": false,
     "is_verbose": false
 }
 ```
+
+* `api_token` can be obtained from [bot father](https://t.me/botfather)
+* `allowed_ids` are ids of allowed telegram users who can get responses from this bot
+* `monitor_interval` is the polling interval (in seconds) from telegram API
+* `theme_id` can be retrieved from [these files](https://github.com/terrastruct/d2/tree/master/d2themes/d2themescatalog) (= 0 for default)
+* `sketch` is whether to render results in sketched style
+* `is_verbose` is whether to print verbose messages
 
 ## Other Dependencies
 
@@ -73,6 +81,7 @@ $ sudo systemctl start telegram-d2-bot.service
 
 ## Todos
 
+- [ ] Add more configurable options.
 - [x] Support uploading .d2 files.
-- [x] Response with .png files. (Playwright is needed)
+- [x] Respond with .png files. (Playwright is needed)
 

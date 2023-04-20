@@ -24,6 +24,7 @@ import (
 	"oss.terrastruct.com/d2/lib/textmeasure"
 )
 
+// constants
 const (
 	defaultMonitoringInterval = 5
 
@@ -34,12 +35,19 @@ const (
 	renderPadding = 40
 )
 
+// struct for configuration
 type config struct {
+	// configs for telegram
 	APIToken        string   `json:"api_token"`
 	AllowedIds      []string `json:"allowed_ids"`
 	MonitorInterval int      `json:"monitor_interval"`
-	Sketch          bool     `json:"sketch,omitempty"`
-	IsVerbose       bool     `json:"is_verbose,omitempty"`
+
+	// d2 rendering style
+	ThemeID int64 `json:"theme_id,omitempty"` // NOTE: pick `ID` from https://github.com/terrastruct/d2/tree/master/d2themes/d2themescatalog
+	Sketch  bool  `json:"sketch,omitempty"`
+
+	// logging
+	IsVerbose bool `json:"is_verbose,omitempty"`
 }
 
 // read config file
@@ -58,7 +66,7 @@ func loadConfig(filepath string) (conf config, err error) {
 }
 
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
-func renderDiagram(str string, sketch bool) (bs []byte, err error) {
+func renderDiagram(conf config, str string) (bs []byte, err error) {
 	var graph *d2graph.Graph
 	if graph, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16: true}); err == nil {
 		var ruler *textmeasure.Ruler
@@ -71,8 +79,8 @@ func renderDiagram(str string, sketch bool) (bs []byte, err error) {
 						var out []byte
 						if out, err = d2svg.Render(diagram, &d2svg.RenderOpts{
 							Pad:           renderPadding,
-							Sketch:        sketch,
-							ThemeID:       d2svg.DEFAULT_THEME,
+							Sketch:        conf.Sketch,
+							ThemeID:       conf.ThemeID,
 							DarkThemeID:   d2svg.DEFAULT_DARK_THEME,
 							SetDimensions: true,
 						}); err == nil { // opts = nil: use default
@@ -114,12 +122,12 @@ func checkAllowance(allowedIds []string, id *string) bool {
 }
 
 // renders a .png file with given `text` and reply to `messageId` with it.
-func replyRendered(bot *tg.Bot, chatID, messageID int64, text string, sketch bool) {
+func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text string) {
 	// typing...
 	_ = bot.SendChatAction(chatID, tg.ChatActionTyping, nil)
 
 	// render text into .svg and convert it to .png bytes
-	if bs, err := renderDiagram(text, sketch); err == nil {
+	if bs, err := renderDiagram(conf, text); err == nil {
 		if sent := bot.SendDocument(
 			chatID,
 			tg.InputFileFromBytes(bs),
@@ -144,10 +152,10 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 }
 
 // handles a text message
-func handleMessage(bot *tg.Bot, message tg.Message, allowedIds []string, sketch bool) {
+func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 	username := message.From.Username
 
-	if checkAllowance(allowedIds, username) {
+	if checkAllowance(conf.AllowedIds, username) {
 		txt := *message.Text
 		chatID := message.Chat.ID
 
@@ -167,7 +175,7 @@ func handleMessage(bot *tg.Bot, message tg.Message, allowedIds []string, sketch 
 		} else { // handle non-commands here
 			messageID := message.MessageID
 
-			replyRendered(bot, chatID, messageID, txt, sketch)
+			replyRendered(bot, conf, chatID, messageID, txt)
 		}
 	} else {
 		if username == nil {
@@ -195,10 +203,10 @@ func getURL(url string) (content []byte, err error) {
 }
 
 // handles a document message
-func handleDocument(bot *tg.Bot, update tg.Update, allowedIds []string, sketch bool) {
+func handleDocument(bot *tg.Bot, conf config, update tg.Update) {
 	username := update.Message.From.Username
 
-	if checkAllowance(allowedIds, username) {
+	if checkAllowance(conf.AllowedIds, username) {
 		document := *update.Message.Document
 		chatID := update.Message.Chat.ID
 		messageID := update.Message.MessageID
@@ -209,7 +217,7 @@ func handleDocument(bot *tg.Bot, update tg.Update, allowedIds []string, sketch b
 				if content, err := getURL(url); err == nil {
 					message := string(content)
 
-					replyRendered(bot, chatID, messageID, message, sketch)
+					replyRendered(bot, conf, chatID, messageID, message)
 				} else {
 					log.Printf("failed to fetch '%s': %s", url, err)
 				}
@@ -231,7 +239,7 @@ func handleDocument(bot *tg.Bot, update tg.Update, allowedIds []string, sketch b
 }
 
 // generates a function for handling updates
-func updateHandleFunc(allowedIds []string, sketch bool) func(*tg.Bot, tg.Update, error) {
+func updateHandleFunc(conf config) func(*tg.Bot, tg.Update, error) {
 	return func(bot *tg.Bot, update tg.Update, err error) {
 		if err != nil {
 			log.Printf("failed to fetch update: %s", err)
@@ -239,11 +247,11 @@ func updateHandleFunc(allowedIds []string, sketch bool) func(*tg.Bot, tg.Update,
 		}
 
 		if update.HasMessage() && update.Message.HasText() {
-			handleMessage(bot, *update.Message, allowedIds, sketch)
+			handleMessage(bot, conf, *update.Message)
 		} else if update.HasEditedMessage() && update.EditedMessage.HasText() {
-			handleMessage(bot, *update.EditedMessage, allowedIds, sketch)
+			handleMessage(bot, conf, *update.EditedMessage)
 		} else if update.Message.HasDocument() {
-			handleDocument(bot, update, allowedIds, sketch)
+			handleDocument(bot, conf, update)
 		}
 	}
 }
@@ -265,7 +273,7 @@ func runBot(confFilepath string) {
 					interval = defaultMonitoringInterval
 				}
 
-				client.StartMonitoringUpdates(0, interval, updateHandleFunc(conf.AllowedIds, conf.Sketch))
+				client.StartMonitoringUpdates(0, interval, updateHandleFunc(conf))
 			} else {
 				log.Printf("failed to delete webhook: %s", *deleted.Description)
 			}
