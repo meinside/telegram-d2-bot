@@ -3,9 +3,9 @@ module github.com/meinside/telegram-d2-bot
 go 1.20
 
 require (
-	github.com/meinside/telegram-bot-go v0.8.5
+	github.com/meinside/telegram-bot-go v0.8.6
 	github.com/playwright-community/playwright-go v0.2000.1
-	oss.terrastruct.com/d2 v0.4.0
+	oss.terrastruct.com/d2 v0.4.1
 )
 
 require (
