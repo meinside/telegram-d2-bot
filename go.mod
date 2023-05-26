@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/meinside/telegram-bot-go v0.8.6
+	github.com/meinside/version-go v0.0.2
 	github.com/playwright-community/playwright-go v0.2000.1
 	oss.terrastruct.com/d2 v0.4.2
 )
@@ -11,7 +12,6 @@ require (
 require (
 	cdr.dev/slog v1.5.3 // indirect
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect
-	github.com/alecthomas/chroma v0.10.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.7.0 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
@@ -23,7 +23,6 @@ require (
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/dsoprea/go-png-image-structure/v2 v2.0.0-20210512210324-29b889a6093d // indirect
 	github.com/dsoprea/go-utility/v2 v2.0.0-20221003172846-a3e1774ef349 // indirect
-	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
@@ -33,7 +32,6 @@ require (
 	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mazznoer/csscolorparser v0.1.3 // indirect
