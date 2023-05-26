@@ -13,6 +13,9 @@ import (
 	// telegram bot
 	tg "github.com/meinside/telegram-bot-go"
 
+	// version string
+	"github.com/meinside/version-go"
+
 	// d2
 	"oss.terrastruct.com/d2/d2compiler"
 	"oss.terrastruct.com/d2/d2exporter"
@@ -266,7 +269,7 @@ func runBot(confFilepath string) {
 
 		if me := client.GetMe(); me.Ok {
 			if deleted := client.DeleteWebhook(false); deleted.Ok {
-				log.Printf("starting bot: @%s (%s)", *me.Result.Username, me.Result.FirstName)
+				log.Printf("starting bot %s: @%s (%s)", version.Minimum(), *me.Result.Username, me.Result.FirstName)
 
 				interval := conf.MonitorInterval
 				if interval <= 0 {
