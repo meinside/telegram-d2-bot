@@ -42,7 +42,7 @@ const (
 type config struct {
 	// configs for telegram
 	APIToken        string   `json:"api_token"`
-	AllowedIds      []string `json:"allowed_ids"`
+	AllowedIDs      []string `json:"allowed_ids"`
 	MonitorInterval int      `json:"monitor_interval"`
 
 	// d2 rendering style
@@ -158,7 +158,7 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 	username := message.From.Username
 
-	if checkAllowance(conf.AllowedIds, username) {
+	if checkAllowance(conf.AllowedIDs, username) {
 		txt := *message.Text
 		chatID := message.Chat.ID
 
@@ -209,7 +209,7 @@ func getURL(url string) (content []byte, err error) {
 func handleDocument(bot *tg.Bot, conf config, update tg.Update) {
 	username := update.Message.From.Username
 
-	if checkAllowance(conf.AllowedIds, username) {
+	if checkAllowance(conf.AllowedIDs, username) {
 		document := *update.Message.Document
 		chatID := update.Message.Chat.ID
 		messageID := update.Message.MessageID
