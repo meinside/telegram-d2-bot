@@ -36,7 +36,8 @@ const (
 
 	messageHelp = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
 	`
-	messageNotSupported = "This type of message is not supported (yet)."
+	messageNotSupported      = "This type of message is not supported (yet)."
+	messageNoMatchingCommand = "Not a supported command: %s"
 
 	renderPadding = 40
 )
@@ -112,16 +113,25 @@ func renderDiagram(conf config, str string) (bs []byte, err error) {
 	return nil, err
 }
 
-// checks if given `id` is allowed.
-func checkAllowance(allowedIds []string, id *string) bool {
-	if id == nil {
+// checks if given username is allowed.
+func isUsernameAllowed(conf config, username *string) bool {
+	if username == nil {
 		return false
 	}
 
-	for _, v := range allowedIds {
-		if v == *id {
+	for _, v := range conf.AllowedIDs {
+		if v == *username {
 			return true
 		}
+	}
+
+	return false
+}
+
+// checks if given update is allowed.
+func isUpdateAllowed(conf config, update tg.Update) bool {
+	if from := update.GetFrom(); from != nil {
+		return isUsernameAllowed(conf, from.Username)
 	}
 
 	return false
@@ -161,17 +171,15 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 	username := message.From.Username
 
-	if checkAllowance(conf.AllowedIDs, username) {
+	if isUsernameAllowed(conf, username) {
 		txt := *message.Text
 		chatID := message.Chat.ID
 		messageID := message.MessageID
 
 		replyRendered(bot, conf, chatID, messageID, txt)
 	} else {
-		if username == nil {
-			log.Printf("received a message from an unauthorized user: '%s'", message.From.FirstName)
-		} else {
-			log.Printf("received a message from an unauthorized user: @%s", *username)
+		if conf.IsVerbose {
+			log.Printf("message not allowed: %s", message.String())
 		}
 	}
 }
@@ -180,7 +188,7 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
 	username := message.From.Username
 
-	if checkAllowance(conf.AllowedIDs, username) {
+	if isUsernameAllowed(conf, username) {
 		document := *message.Document
 		chatID := message.Chat.ID
 		messageID := message.MessageID
@@ -204,47 +212,68 @@ func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
 			}
 		}
 	} else {
-		if username == nil {
-			log.Printf("received a document from an unauthorized user: '%s'", message.From.FirstName)
-		} else {
-			log.Printf("received a document from an unauthorized user: @%s", *username)
+		if conf.IsVerbose {
+			log.Printf("document not allowed: %s", message.String())
 		}
 	}
 }
 
 // handles a non-supported message
 func handleNoSupport(bot *tg.Bot, conf config, update tg.Update) {
-	if from := update.GetFrom(); from != nil {
-		if checkAllowance(conf.AllowedIDs, from.Username) {
-			if message, _ := update.GetMessage(); message != nil {
-				chatID := message.Chat.ID
-				messageID := message.MessageID
+	if isUpdateAllowed(conf, update) {
+		if message, _ := update.GetMessage(); message != nil {
+			chatID := message.Chat.ID
+			messageID := message.MessageID
 
-				replyError(bot, chatID, messageID, messageNotSupported)
-			} else {
-				log.Printf("no usabale message: %s", update.String())
-			}
+			replyError(bot, chatID, messageID, messageNotSupported)
 		} else {
-			if from.Username != nil {
-				log.Printf("received a message from an unauthorized user: @%s", *from.Username)
-			} else {
-				log.Printf("received a message from an unauthorized user: '%s'", from.FirstName)
-			}
+			log.Printf("no usabale message: %s", update.String())
+		}
+	} else {
+		if conf.IsVerbose {
+			log.Printf("update not allowed: %s", update.String())
 		}
 	}
 }
 
 // handle help command
-func handleHelpCommand(b *tg.Bot, update tg.Update, args string) {
-	if message, _ := update.GetMessage(); message != nil {
-		chatID := message.Chat.ID
+func handleHelpCommand(b *tg.Bot, conf config, update tg.Update) {
+	if isUpdateAllowed(conf, update) {
+		if message, _ := update.GetMessage(); message != nil {
+			chatID := message.Chat.ID
 
-		if sent := b.SendMessage(
-			chatID,
-			messageHelp,
-			tg.OptionsSendMessage{}.
-				SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
-			log.Printf("failed to send help message: %s", *sent.Description)
+			if sent := b.SendMessage(
+				chatID,
+				messageHelp,
+				tg.OptionsSendMessage{}.
+					SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+				log.Printf("failed to send help message: %s", *sent.Description)
+			}
+		}
+	} else {
+		if conf.IsVerbose {
+			log.Printf("update not allowed: %s", update.String())
+		}
+	}
+}
+
+// handle no matching command
+func handleNoMatchingCommand(b *tg.Bot, conf config, update tg.Update, cmd string) {
+	if isUpdateAllowed(conf, update) {
+		if message, _ := update.GetMessage(); message != nil {
+			chatID := message.Chat.ID
+
+			if sent := b.SendMessage(
+				chatID,
+				fmt.Sprintf(messageNoMatchingCommand, cmd),
+				tg.OptionsSendMessage{}.
+					SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+				log.Printf("failed to send no-matching-command message: %s", *sent.Description)
+			}
+		}
+	} else {
+		if conf.IsVerbose {
+			log.Printf("update not allowed: %s", update.String())
 		}
 	}
 }
@@ -293,8 +322,15 @@ func runBot(confFilepath string) {
 				})
 
 				// set command handlers
-				client.AddCommandHandler(commandStart, handleHelpCommand)
-				client.AddCommandHandler(commandHelp, handleHelpCommand)
+				client.AddCommandHandler(commandStart, func(b *tg.Bot, update tg.Update, args string) {
+					handleHelpCommand(b, conf, update)
+				})
+				client.AddCommandHandler(commandHelp, func(b *tg.Bot, update tg.Update, args string) {
+					handleHelpCommand(b, conf, update)
+				})
+				client.SetNoMatchingCommandHandler(func(b *tg.Bot, update tg.Update, cmd, args string) {
+					handleNoMatchingCommand(b, conf, update, cmd)
+				})
 
 				// start polling
 				client.StartMonitoringUpdates(0, interval, func(b *tg.Bot, update tg.Update, err error) {
