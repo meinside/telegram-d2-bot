@@ -32,8 +32,11 @@ const (
 	defaultMonitoringInterval = 5
 
 	commandStart = "/start"
-	messageStart = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
+	commandHelp  = "/help"
+
+	messageHelp = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
 	`
+	messageNotSupported = "This type of message is not supported (yet)."
 
 	renderPadding = 40
 )
@@ -161,25 +164,9 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 	if checkAllowance(conf.AllowedIDs, username) {
 		txt := *message.Text
 		chatID := message.Chat.ID
+		messageID := message.MessageID
 
-		if strings.HasPrefix(txt, "/") { // handle commands here
-			switch txt {
-			case commandStart:
-				if sent := bot.SendMessage(
-					chatID,
-					messageStart,
-					tg.OptionsSendMessage{}.
-						SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
-					log.Printf("failed to send start message: %s", *sent.Description)
-				}
-			}
-
-			// unhandled commands reach here
-		} else { // handle non-commands here
-			messageID := message.MessageID
-
-			replyRendered(bot, conf, chatID, messageID, txt)
-		}
+		replyRendered(bot, conf, chatID, messageID, txt)
 	} else {
 		if username == nil {
 			log.Printf("received a message from an unauthorized user: '%s'", message.From.FirstName)
@@ -189,30 +176,14 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 	}
 }
 
-func getURL(url string) (content []byte, err error) {
-	var res *http.Response
-	if res, err = http.Get(url); err != nil {
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	content, err = io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return content, nil
-}
-
 // handles a document message
-func handleDocument(bot *tg.Bot, conf config, update tg.Update) {
-	username := update.Message.From.Username
+func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
+	username := message.From.Username
 
 	if checkAllowance(conf.AllowedIDs, username) {
-		document := *update.Message.Document
-		chatID := update.Message.Chat.ID
-		messageID := update.Message.MessageID
+		document := *message.Document
+		chatID := message.Chat.ID
+		messageID := message.MessageID
 
 		if document.FileName != nil && strings.HasSuffix(*document.FileName, ".d2") {
 			if file := bot.GetFile(document.FileID); file.Ok {
@@ -234,29 +205,65 @@ func handleDocument(bot *tg.Bot, conf config, update tg.Update) {
 		}
 	} else {
 		if username == nil {
-			log.Printf("received a document from an unauthorized user: '%s'", update.Message.From.FirstName)
+			log.Printf("received a document from an unauthorized user: '%s'", message.From.FirstName)
 		} else {
 			log.Printf("received a document from an unauthorized user: @%s", *username)
 		}
 	}
 }
 
-// generates a function for handling updates
-func updateHandleFunc(conf config) func(*tg.Bot, tg.Update, error) {
-	return func(bot *tg.Bot, update tg.Update, err error) {
-		if err != nil {
-			log.Printf("failed to fetch update: %s", err)
-			return
-		}
+// handles a non-supported message
+func handleNoSupport(bot *tg.Bot, conf config, update tg.Update) {
+	if from := update.GetFrom(); from != nil {
+		if checkAllowance(conf.AllowedIDs, from.Username) {
+			if message, _ := update.GetMessage(); message != nil {
+				chatID := message.Chat.ID
+				messageID := message.MessageID
 
-		if update.HasMessage() && update.Message.HasText() {
-			handleMessage(bot, conf, *update.Message)
-		} else if update.HasEditedMessage() && update.EditedMessage.HasText() {
-			handleMessage(bot, conf, *update.EditedMessage)
-		} else if update.Message.HasDocument() {
-			handleDocument(bot, conf, update)
+				replyError(bot, chatID, messageID, messageNotSupported)
+			} else {
+				log.Printf("no usabale message: %s", update.String())
+			}
+		} else {
+			if from.Username != nil {
+				log.Printf("received a message from an unauthorized user: @%s", *from.Username)
+			} else {
+				log.Printf("received a message from an unauthorized user: '%s'", from.FirstName)
+			}
 		}
 	}
+}
+
+// handle help command
+func handleHelpCommand(b *tg.Bot, update tg.Update, args string) {
+	if message, _ := update.GetMessage(); message != nil {
+		chatID := message.Chat.ID
+
+		if sent := b.SendMessage(
+			chatID,
+			messageHelp,
+			tg.OptionsSendMessage{}.
+				SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+			log.Printf("failed to send help message: %s", *sent.Description)
+		}
+	}
+}
+
+// get file bytes from given url
+func getURL(url string) (content []byte, err error) {
+	var res *http.Response
+	if res, err = http.Get(url); err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+
+	content, err = io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return content, nil
 }
 
 // runs the bot with config file's path
@@ -276,7 +283,28 @@ func runBot(confFilepath string) {
 					interval = defaultMonitoringInterval
 				}
 
-				client.StartMonitoringUpdates(0, interval, updateHandleFunc(conf))
+				// set update handlers
+				client.SetMessageHandler(func(b *tg.Bot, update tg.Update, message tg.Message, edited bool) {
+					if message.HasText() {
+						handleMessage(b, conf, message)
+					} else if message.HasDocument() {
+						handleDocument(b, conf, message)
+					}
+				})
+
+				// set command handlers
+				client.AddCommandHandler(commandStart, handleHelpCommand)
+				client.AddCommandHandler(commandHelp, handleHelpCommand)
+
+				// start polling
+				client.StartMonitoringUpdates(0, interval, func(b *tg.Bot, update tg.Update, err error) {
+					if err != nil {
+						log.Printf("failed to poll updates: %s", err.Error())
+					} else {
+						// do nothing (messages are handled by specified update handler)
+						handleNoSupport(b, conf, update)
+					}
+				})
 			} else {
 				log.Printf("failed to delete webhook: %s", *deleted.Description)
 			}
