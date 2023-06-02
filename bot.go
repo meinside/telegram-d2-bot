@@ -29,7 +29,7 @@ import (
 
 // constants
 const (
-	defaultMonitoringInterval = 5
+	defaultPollingInterval = 5
 
 	commandStart = "/start"
 	commandHelp  = "/help"
@@ -309,7 +309,7 @@ func runBot(confFilepath string) {
 
 				interval := conf.MonitorInterval
 				if interval <= 0 {
-					interval = defaultMonitoringInterval
+					interval = defaultPollingInterval
 				}
 
 				// set update handlers
@@ -333,7 +333,7 @@ func runBot(confFilepath string) {
 				})
 
 				// start polling
-				client.StartMonitoringUpdates(0, interval, func(b *tg.Bot, update tg.Update, err error) {
+				client.StartPollingUpdates(0, interval, func(b *tg.Bot, update tg.Update, err error) {
 					if err != nil {
 						log.Printf("failed to poll updates: %s", err.Error())
 					} else {
