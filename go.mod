@@ -1,6 +1,6 @@
 module github.com/meinside/telegram-d2-bot
 
-go 1.20
+go 1.21.0
 
 require (
 	github.com/meinside/telegram-bot-go v0.9.7
@@ -10,6 +10,8 @@ require (
 	golang.org/x/image v0.8.0 // indirect
 	oss.terrastruct.com/d2 v0.5.1
 )
+
+require github.com/meinside/infisical-go v0.0.12
 
 require (
 	cdr.dev/slog v1.4.2-0.20221206192828-e4803b10ae17 // indirect
