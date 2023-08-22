@@ -11,10 +11,14 @@ import (
 	"strings"
 
 	// telegram bot
+	"github.com/meinside/infisical-go/helper"
 	tg "github.com/meinside/telegram-bot-go"
 
 	// version string
 	"github.com/meinside/version-go"
+
+	// infisical
+	"github.com/meinside/infisical-go"
 
 	// d2
 	"oss.terrastruct.com/d2/d2compiler"
@@ -44,8 +48,7 @@ const (
 
 // struct for configuration
 type config struct {
-	// configs for telegram
-	APIToken        string   `json:"api_token"`
+	// configurations
 	AllowedIDs      []string `json:"allowed_ids"`
 	MonitorInterval int      `json:"monitor_interval"`
 
@@ -55,21 +58,58 @@ type config struct {
 
 	// logging
 	IsVerbose bool `json:"is_verbose,omitempty"`
+
+	// Bot API token
+	BotToken string `json:"bot_token,omitempty"`
+
+	// or Infisical settings
+	Infisical *struct {
+		// NOTE: When the workspace's E2EE setting is enabled, APIKey is essential for decryption
+		E2EE   bool    `json:"e2ee,omitempty"`
+		APIKey *string `json:"api_key,omitempty"`
+
+		WorkspaceID string               `json:"workspace_id"`
+		Token       string               `json:"token"`
+		Environment string               `json:"environment"`
+		SecretType  infisical.SecretType `json:"secret_type"`
+
+		BotTokenKeyPath string `json:"bot_token_key_path"`
+	} `json:"infisical,omitempty"`
 }
 
 // read config file
 func loadConfig(filepath string) (conf config, err error) {
-	if err == nil {
-		var bytes []byte
-		bytes, err = os.ReadFile(filepath)
-		if err == nil {
-			err = json.Unmarshal(bytes, &conf)
-			if err == nil {
-				return conf, nil
+	var bytes []byte
+	if bytes, err = os.ReadFile(filepath); err == nil {
+		if err = json.Unmarshal(bytes, &conf); err == nil {
+			if conf.BotToken == "" && conf.Infisical != nil {
+				// read bot token from infisical
+				var botToken string
+
+				if conf.Infisical.E2EE && conf.Infisical.APIKey != nil {
+					botToken, err = helper.E2EEValue(
+						*conf.Infisical.APIKey,
+						conf.Infisical.WorkspaceID,
+						conf.Infisical.Token,
+						conf.Infisical.Environment,
+						conf.Infisical.SecretType,
+						conf.Infisical.BotTokenKeyPath,
+					)
+				} else {
+					botToken, err = helper.Value(
+						conf.Infisical.WorkspaceID,
+						conf.Infisical.Token,
+						conf.Infisical.Environment,
+						conf.Infisical.SecretType,
+						conf.Infisical.BotTokenKeyPath,
+					)
+				}
+				conf.BotToken = botToken
 			}
 		}
 	}
-	return config{}, err
+
+	return conf, err
 }
 
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
@@ -300,7 +340,7 @@ func runBot(confFilepath string) {
 	if conf, err := loadConfig(confFilepath); err != nil {
 		panic(err)
 	} else {
-		client := tg.NewClient(conf.APIToken)
+		client := tg.NewClient(conf.BotToken)
 		client.Verbose = conf.IsVerbose
 
 		if me := client.GetMe(); me.Ok {

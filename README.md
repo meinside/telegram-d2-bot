@@ -16,21 +16,69 @@ and edit:
 
 ```json
 {
-    "api_token": "xxxxxxxxyyyyyyyy-1234567",
-    "allowed_ids": ["telegram_username_1", "telegram_username_2"],
-    "monitor_interval": 5,
-    "theme_id": 0,
-    "sketch": false,
-    "is_verbose": false
+  "allowed_ids": ["telegram_username_1", "telegram_username_2"],
+  "monitor_interval": 5,
+  "theme_id": 0,
+  "sketch": false,
+  "is_verbose": false,
+
+  "bot_token": "xxxxxxxxyyyyyyyy-1234567"
 }
 ```
 
-* `api_token` can be obtained from [bot father](https://t.me/botfather)
+* `bot_token` can be obtained from [bot father](https://t.me/botfather)
 * `allowed_ids` are ids of allowed telegram users who can get responses from this bot
 * `monitor_interval` is the polling interval (in seconds) from telegram API
 * `theme_id` can be retrieved from [these files](https://github.com/terrastruct/d2/tree/master/d2themes/d2themescatalog) (= 0 for default)
 * `sketch` is whether to render results in sketched style
 * `is_verbose` is whether to print verbose messages
+
+### Using Infisical
+
+You can use [Infisical](https://infisical.com/) for retrieving your bot token and api key:
+
+```json
+{
+  "allowed_ids": ["telegram_username_1", "telegram_username_2"],
+  "monitor_interval": 5,
+  "theme_id": 0,
+  "sketch": false,
+  "is_verbose": false,
+
+  "infisical": {
+    "workspace_id": "012345abcdefg",
+    "token": "st.xyzwabcd.0987654321.abcdefghijklmnop",
+    "environment": "dev",
+    "secret_type": "shared",
+
+    "bot_token_key_path": "/path/to/your/KEY_TO_BOT_TOKEN",
+  }
+}
+```
+
+If your Infisical workspace's E2EE setting is enabled, you also need to provide your API key:
+
+```json
+{
+  "allowed_ids": ["telegram_username_1", "telegram_username_2"],
+  "monitor_interval": 5,
+  "theme_id": 0,
+  "sketch": false,
+  "is_verbose": false,
+
+  "infisical": {
+    "e2ee": true,
+    "api_key": "ak.1234567890.abcdefghijk",
+
+    "workspace_id": "012345abcdefg",
+    "token": "st.xyzwabcd.0987654321.abcdefghijklmnop",
+    "environment": "dev",
+    "secret_type": "shared",
+
+    "bot_token_key_path": "/path/to/your/KEY_TO_BOT_TOKEN",
+  }
+}
+```
 
 ## Other Dependencies
 
