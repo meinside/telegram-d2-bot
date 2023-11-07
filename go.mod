@@ -8,7 +8,7 @@ require (
 	github.com/meinside/version-go v0.0.2
 	github.com/playwright-community/playwright-go v0.3500.0
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/image v0.8.0 // indirect
+	golang.org/x/image v0.10.0 // indirect
 	oss.terrastruct.com/d2 v0.5.1
 )
 
