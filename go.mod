@@ -7,7 +7,7 @@ require (
 	github.com/meinside/telegram-bot-go v0.9.7
 	github.com/meinside/version-go v0.0.2
 	github.com/playwright-community/playwright-go v0.3500.0
-	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/image v0.10.0 // indirect
 	oss.terrastruct.com/d2 v0.5.1
 )
