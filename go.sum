@@ -134,10 +134,10 @@ github.com/mattn/go-isatty v0.0.14 h1:yVuAays6BHfxijgZPzw+3Zlu5yQgKGP2/hcQbHb7S9
 github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj79iQHKdU27kJ6hsGG94=
 github.com/mazznoer/csscolorparser v0.1.3 h1:vug4zh6loQxAUxfU1DZEu70gTPufDPspamZlHAkKcxE=
 github.com/mazznoer/csscolorparser v0.1.3/go.mod h1:Aj22+L/rYN/Y6bj3bYqO3N6g1dtdHtGfQ32xZ5PJQic=
-github.com/meinside/infisical-go v0.0.18 h1:7vTzMYJc6e1pKmgwrsfPfYFkGMjemNdg/6utwdgUxzc=
-github.com/meinside/infisical-go v0.0.18/go.mod h1:cfQHaBT5VIzQISkrmJj/AUkyxGMoTBy8ENNEL0TJ02E=
-github.com/meinside/telegram-bot-go v0.10.0 h1:zFZePLibj9VUGMOuvy/GIjmWgVINXfty0HJvQdR1A2A=
-github.com/meinside/telegram-bot-go v0.10.0/go.mod h1:i9gGJrrfhdAIElC/HCUprMmccGjMKPVq52av4n54Y2s=
+github.com/meinside/infisical-go v0.2.0 h1:5RT+MiuW/oZ+I1ERzkU4yXnJu9fQPddHNVd322edixU=
+github.com/meinside/infisical-go v0.2.0/go.mod h1:3RlFkDs6YoYV7nCf9YYbL26mM5sf0MhO3MNAMOjWIXQ=
+github.com/meinside/telegram-bot-go v0.10.5 h1:CE0fkHDYI/zvzoh+7qEsbMYKdm1IkeFK3poR9ZEcWW0=
+github.com/meinside/telegram-bot-go v0.10.5/go.mod h1:i9gGJrrfhdAIElC/HCUprMmccGjMKPVq52av4n54Y2s=
 github.com/meinside/version-go v0.0.2 h1:No8xR94DxOhnrp49M/RSbQ/eWTt1GcncmrJdk1nHtiM=
 github.com/meinside/version-go v0.0.2/go.mod h1:mFvlwbro1E126u4rU727CcHNa8OPFyhq+KDYYNysFj4=
 github.com/playwright-community/playwright-go v0.3500.0 h1:pWUwUa+JDibO3IOOjWsZ6d0gVehsLVCt6ZpJitePJXM=
