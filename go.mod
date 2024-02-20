@@ -3,8 +3,8 @@ module github.com/meinside/telegram-d2-bot
 go 1.21.3
 
 require (
-	github.com/meinside/infisical-go v0.0.18
-	github.com/meinside/telegram-bot-go v0.10.0
+	github.com/meinside/infisical-go v0.2.0
+	github.com/meinside/telegram-bot-go v0.10.5
 	github.com/meinside/version-go v0.0.2
 	github.com/playwright-community/playwright-go v0.3500.0
 	golang.org/x/crypto v0.17.0 // indirect
