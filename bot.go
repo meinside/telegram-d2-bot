@@ -29,6 +29,8 @@ import (
 	"oss.terrastruct.com/d2/d2target"
 	"oss.terrastruct.com/d2/lib/png"
 	"oss.terrastruct.com/d2/lib/textmeasure"
+
+	"github.com/tailscale/hujson"
 )
 
 // constants
@@ -79,26 +81,39 @@ type config struct {
 func loadConfig(filepath string) (conf config, err error) {
 	var bytes []byte
 	if bytes, err = os.ReadFile(filepath); err == nil {
-		if err = json.Unmarshal(bytes, &conf); err == nil {
-			if conf.BotToken == "" && conf.Infisical != nil {
-				// read bot token from infisical
-				var botToken string
+		if bytes, err = standardizeJSON(bytes); err == nil {
+			if err = json.Unmarshal(bytes, &conf); err == nil {
+				if conf.BotToken == "" && conf.Infisical != nil {
+					// read bot token from infisical
+					var botToken string
 
-				botToken, err = helper.Value(
-					conf.Infisical.ClientID,
-					conf.Infisical.ClientSecret,
-					conf.Infisical.WorkspaceID,
-					conf.Infisical.Environment,
-					conf.Infisical.SecretType,
-					conf.Infisical.BotTokenKeyPath,
-				)
+					botToken, err = helper.Value(
+						conf.Infisical.ClientID,
+						conf.Infisical.ClientSecret,
+						conf.Infisical.WorkspaceID,
+						conf.Infisical.Environment,
+						conf.Infisical.SecretType,
+						conf.Infisical.BotTokenKeyPath,
+					)
 
-				conf.BotToken = botToken
+					conf.BotToken = botToken
+				}
 			}
 		}
 	}
 
 	return conf, err
+}
+
+// standardize given JSON (JWCC) bytes
+func standardizeJSON(b []byte) ([]byte, error) {
+	ast, err := hujson.Parse(b)
+	if err != nil {
+		return b, err
+	}
+	ast.Standardize()
+
+	return ast.Pack(), nil
 }
 
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
