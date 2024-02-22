@@ -12,6 +12,8 @@ require (
 	oss.terrastruct.com/d2 v0.5.1
 )
 
+require github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
+
 require (
 	cdr.dev/slog v1.4.2-0.20221206192828-e4803b10ae17 // indirect
 	github.com/PuerkitoBio/goquery v1.8.0 // indirect
