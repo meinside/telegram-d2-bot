@@ -64,12 +64,10 @@ type config struct {
 
 	// or Infisical settings
 	Infisical *struct {
-		// NOTE: When the workspace's E2EE setting is enabled, APIKey is essential for decryption
-		E2EE   bool    `json:"e2ee,omitempty"`
-		APIKey *string `json:"api_key,omitempty"`
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
 
 		WorkspaceID string               `json:"workspace_id"`
-		Token       string               `json:"token"`
 		Environment string               `json:"environment"`
 		SecretType  infisical.SecretType `json:"secret_type"`
 
@@ -86,24 +84,15 @@ func loadConfig(filepath string) (conf config, err error) {
 				// read bot token from infisical
 				var botToken string
 
-				if conf.Infisical.E2EE && conf.Infisical.APIKey != nil {
-					botToken, err = helper.E2EEValue(
-						*conf.Infisical.APIKey,
-						conf.Infisical.WorkspaceID,
-						conf.Infisical.Token,
-						conf.Infisical.Environment,
-						conf.Infisical.SecretType,
-						conf.Infisical.BotTokenKeyPath,
-					)
-				} else {
-					botToken, err = helper.Value(
-						conf.Infisical.WorkspaceID,
-						conf.Infisical.Token,
-						conf.Infisical.Environment,
-						conf.Infisical.SecretType,
-						conf.Infisical.BotTokenKeyPath,
-					)
-				}
+				botToken, err = helper.Value(
+					conf.Infisical.ClientID,
+					conf.Infisical.ClientSecret,
+					conf.Infisical.WorkspaceID,
+					conf.Infisical.Environment,
+					conf.Infisical.SecretType,
+					conf.Infisical.BotTokenKeyPath,
+				)
+
 				conf.BotToken = botToken
 			}
 		}

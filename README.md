@@ -46,32 +46,10 @@ You can use [Infisical](https://infisical.com/) for retrieving your bot token an
   "is_verbose": false,
 
   "infisical": {
-    "workspace_id": "012345abcdefg",
-    "token": "st.xyzwabcd.0987654321.abcdefghijklmnop",
-    "environment": "dev",
-    "secret_type": "shared",
-
-    "bot_token_key_path": "/path/to/your/KEY_TO_BOT_TOKEN",
-  }
-}
-```
-
-If your Infisical workspace's E2EE setting is enabled, you also need to provide your API key:
-
-```json
-{
-  "allowed_ids": ["telegram_username_1", "telegram_username_2"],
-  "monitor_interval": 5,
-  "theme_id": 0,
-  "sketch": false,
-  "is_verbose": false,
-
-  "infisical": {
-    "e2ee": true,
-    "api_key": "ak.1234567890.abcdefghijk",
+    "client_id": "012345-abcdefg-987654321",
+    "client_secret": "aAbBcCdDeEfFgG0123456789xyzwXYZW",
 
     "workspace_id": "012345abcdefg",
-    "token": "st.xyzwabcd.0987654321.abcdefghijklmnop",
     "environment": "dev",
     "secret_type": "shared",
 
