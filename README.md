@@ -77,7 +77,7 @@ $ ./telegram-d2-bot config.json
 
 ### systemd
 
-Create a file named `/lib/systemd/system/telegram-d2-bot.service`:
+Create a file named `/etc/systemd/system/telegram-d2-bot.service`:
 
 ```
 [Unit]
