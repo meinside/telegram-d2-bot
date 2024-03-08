@@ -45,7 +45,7 @@ const (
 	messageNotSupported      = "This type of message is not supported (yet)."
 	messageNoMatchingCommand = "Not a supported command: %s"
 
-	renderPadding = 40
+	renderPadding int64 = 40
 )
 
 // struct for configuration
@@ -116,24 +116,31 @@ func standardizeJSON(b []byte) ([]byte, error) {
 	return ast.Pack(), nil
 }
 
+// convert any value to a pointer
+func toPointer[T any](v T) *T {
+	val := v
+	return &val
+}
+
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
 func renderDiagram(conf config, str string) (bs []byte, err error) {
 	var graph *d2graph.Graph
-	if graph, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16: true}); err == nil {
+	if graph, _, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16Pos: true}); err == nil {
 		var ruler *textmeasure.Ruler
 		if ruler, err = textmeasure.NewRuler(); err == nil {
 			if err = graph.SetDimensions(nil, ruler, nil); err == nil { // fontFamily = nil: use default
 				ctx := context.Background()
+				defer ctx.Done()
+
 				if err = d2dagrelayout.Layout(ctx, graph, nil); err == nil { // opts = nil: use default
 					var diagram *d2target.Diagram
 					if diagram, err = d2exporter.Export(ctx, graph, nil); err == nil { // fontFamily = nil: use default
-						var out []byte
-						if out, err = d2svg.Render(diagram, &d2svg.RenderOpts{
-							Pad:           renderPadding,
-							Sketch:        conf.Sketch,
-							ThemeID:       conf.ThemeID,
-							DarkThemeID:   d2svg.DEFAULT_DARK_THEME,
-							SetDimensions: true,
+						if bs, err = d2svg.Render(diagram, &d2svg.RenderOpts{
+							Pad:         toPointer(renderPadding),
+							Sketch:      toPointer(conf.Sketch),
+							ThemeID:     toPointer(conf.ThemeID),
+							DarkThemeID: d2svg.DEFAULT_DARK_THEME,
+							Scale:       toPointer(1.0), // 1:1
 						}); err == nil { // opts = nil: use default
 							var pw png.Playwright
 							if pw, err = png.InitPlaywright(); err == nil {
@@ -144,8 +151,8 @@ func renderDiagram(conf config, str string) (bs []byte, err error) {
 									}
 								}()
 
-								if out, err = png.ConvertSVG(nil, pw.Page, out); err == nil {
-									return out, nil
+								if bs, err = png.ConvertSVG(pw.Page, bs); err == nil {
+									return bs, nil
 								}
 							}
 						}
@@ -195,10 +202,7 @@ func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text strin
 				SetReplyParameters(tg.ReplyParameters{MessageID: messageID})); !sent.Ok {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
 		} else {
-			if reactioned := bot.SetMessageReaction(chatID, messageID, tg.OptionsSetMessageReaction{}.
-				SetReaction([]tg.ReactionType{
-					tg.NewEmojiReaction("👌"),
-				})); !reactioned.Ok {
+			if reactioned := bot.SetMessageReaction(chatID, messageID, tg.NewMessageReactionWithEmoji("👌")); !reactioned.Ok {
 				log.Printf("failed to set reaction: %s", *reactioned.Description)
 			}
 		}
