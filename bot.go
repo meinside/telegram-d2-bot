@@ -197,7 +197,7 @@ func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text strin
 	if bs, err := renderDiagram(conf, text); err == nil {
 		if sent := bot.SendDocument(
 			chatID,
-			tg.InputFileFromBytes(bs),
+			tg.NewInputFileFromBytes(bs),
 			tg.OptionsSendDocument{}.
 				SetReplyParameters(tg.ReplyParameters{MessageID: messageID})); !sent.Ok {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
@@ -234,7 +234,7 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 		replyRendered(bot, conf, chatID, messageID, txt)
 	} else {
 		if conf.IsVerbose {
-			log.Printf("message not allowed: %s", message.String())
+			log.Printf("message not allowed: %+v", message)
 		}
 	}
 }
@@ -268,7 +268,7 @@ func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
 		}
 	} else {
 		if conf.IsVerbose {
-			log.Printf("document not allowed: %s", message.String())
+			log.Printf("document not allowed: %+v", message)
 		}
 	}
 }
@@ -282,11 +282,11 @@ func handleNoSupport(bot *tg.Bot, conf config, update tg.Update) {
 
 			replyError(bot, chatID, messageID, messageNotSupported)
 		} else {
-			log.Printf("no usabale message: %s", update.String())
+			log.Printf("no usabale message: %+v", update)
 		}
 	} else {
 		if conf.IsVerbose {
-			log.Printf("update not allowed: %s", update.String())
+			log.Printf("update not allowed: %+v", update)
 		}
 	}
 }
@@ -307,7 +307,7 @@ func handleHelpCommand(b *tg.Bot, conf config, update tg.Update) {
 		}
 	} else {
 		if conf.IsVerbose {
-			log.Printf("update not allowed: %s", update.String())
+			log.Printf("update not allowed: %+v", update)
 		}
 	}
 }
@@ -328,7 +328,7 @@ func handleNoMatchingCommand(b *tg.Bot, conf config, update tg.Update, cmd strin
 		}
 	} else {
 		if conf.IsVerbose {
-			log.Printf("update not allowed: %s", update.String())
+			log.Printf("update not allowed: %+v", update)
 		}
 	}
 }
