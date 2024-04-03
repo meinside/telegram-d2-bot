@@ -199,7 +199,7 @@ func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text strin
 			chatID,
 			tg.NewInputFileFromBytes(bs),
 			tg.OptionsSendDocument{}.
-				SetReplyParameters(tg.ReplyParameters{MessageID: messageID})); !sent.Ok {
+				SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.Ok {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
 		} else {
 			if reactioned := bot.SetMessageReaction(chatID, messageID, tg.NewMessageReactionWithEmoji("👌")); !reactioned.Ok {
@@ -217,7 +217,7 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 		chatID,
 		text,
 		tg.OptionsSendMessage{}.
-			SetReplyParameters(tg.ReplyParameters{MessageID: messageID})); !sent.Ok {
+			SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.Ok {
 		log.Printf("failed to send rendered image: %s", *sent.Description)
 	}
 }
