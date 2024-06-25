@@ -3,10 +3,10 @@ module github.com/meinside/telegram-d2-bot
 go 1.22.1
 
 require (
-	github.com/meinside/infisical-go v0.3.1
-	github.com/meinside/telegram-bot-go v0.10.7
+	github.com/meinside/infisical-go v0.4.0
+	github.com/meinside/telegram-bot-go v0.11.2
 	github.com/meinside/version-go v0.0.3
-	github.com/playwright-community/playwright-go v0.4201.1
+	github.com/playwright-community/playwright-go v0.4401.1
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	oss.terrastruct.com/d2 v0.6.3
 )
@@ -43,7 +43,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
+	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
 	golang.org/x/image v0.15.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
