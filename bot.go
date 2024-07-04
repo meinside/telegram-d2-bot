@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	// telegram bot
-	"github.com/meinside/infisical-go/helper"
 	tg "github.com/meinside/telegram-bot-go"
 
 	// version string
@@ -19,6 +18,7 @@ import (
 
 	// infisical
 	"github.com/meinside/infisical-go"
+	"github.com/meinside/infisical-go/helper"
 
 	// d2
 	"oss.terrastruct.com/d2/d2compiler"
@@ -30,6 +30,7 @@ import (
 	"oss.terrastruct.com/d2/lib/png"
 	"oss.terrastruct.com/d2/lib/textmeasure"
 
+	// others
 	"github.com/tailscale/hujson"
 )
 
@@ -37,11 +38,13 @@ import (
 const (
 	defaultPollingInterval = 5
 
-	commandStart = "/start"
-	commandHelp  = "/help"
+	commandStart   = "/start"
+	commandHelp    = "/help"
+	commandPrivacy = "/privacy"
 
 	messageHelp = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
-	`
+`
+	messagePrivacy           = `[Privacy Policy](https://github\.com/meinside/telegram\-d2\-bot/raw/master/PRIVACY\.md)`
 	messageNotSupported      = "This type of message is not supported (yet)."
 	messageNoMatchingCommand = "Not a supported command: %s"
 
@@ -312,6 +315,21 @@ func handleHelpCommand(b *tg.Bot, conf config, update tg.Update) {
 	}
 }
 
+// handle privacy command
+func handlePrivacyCommand(b *tg.Bot, update tg.Update) {
+	if message, _ := update.GetMessage(); message != nil {
+		chatID := message.Chat.ID
+
+		if sent := b.SendMessage(
+			chatID,
+			messagePrivacy,
+			tg.OptionsSendMessage{}.
+				SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+			log.Printf("failed to send privacy policy: %s", *sent.Description)
+		}
+	}
+}
+
 // handle no matching command
 func handleNoMatchingCommand(b *tg.Bot, conf config, update tg.Update, cmd string) {
 	if isUpdateAllowed(conf, update) {
@@ -382,6 +400,9 @@ func runBot(confFilepath string) {
 				})
 				client.AddCommandHandler(commandHelp, func(b *tg.Bot, update tg.Update, args string) {
 					handleHelpCommand(b, conf, update)
+				})
+				client.AddCommandHandler(commandPrivacy, func(b *tg.Bot, update tg.Update, args string) {
+					handlePrivacyCommand(b, update)
 				})
 				client.SetNoMatchingCommandHandler(func(b *tg.Bot, update tg.Update, cmd, args string) {
 					handleNoMatchingCommand(b, conf, update, cmd)

@@ -139,6 +139,8 @@ github.com/meinside/infisical-go v0.4.0 h1:bW7Y3QG7MHtMlnTDQD9Rmyu14PCakn905XIBq
 github.com/meinside/infisical-go v0.4.0/go.mod h1:djjoLo50nAHY1Ron+/YfLUov9wT0nBVYkWuMvdd63pQ=
 github.com/meinside/telegram-bot-go v0.11.2 h1:jw5Ewcfbly/iq/PZHaqqGVW+000p+YopRT117lwtBtU=
 github.com/meinside/telegram-bot-go v0.11.2/go.mod h1:i9gGJrrfhdAIElC/HCUprMmccGjMKPVq52av4n54Y2s=
+github.com/meinside/telegram-bot-go v0.11.3 h1:S7dwn8DoB6eledM/NWILp5CtQe6PAfkqS+vmks3hlX4=
+github.com/meinside/telegram-bot-go v0.11.3/go.mod h1:i9gGJrrfhdAIElC/HCUprMmccGjMKPVq52av4n54Y2s=
 github.com/meinside/version-go v0.0.3 h1:GXSwi6sTmgpnSR09jAAqDGWeX2Nq52fe5xpitgAhQfM=
 github.com/meinside/version-go v0.0.3/go.mod h1:mFvlwbro1E126u4rU727CcHNa8OPFyhq+KDYYNysFj4=
 github.com/mitchellh/go-ps v1.0.0 h1:i6ampVEEF4wQFF+bkYfwYgY+F/uYJDktmvLPf7qIgjc=
