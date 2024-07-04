@@ -49,7 +49,7 @@ You can use [Infisical](https://infisical.com/) for retrieving your bot token an
     "client_id": "012345-abcdefg-987654321",
     "client_secret": "aAbBcCdDeEfFgG0123456789xyzwXYZW",
 
-    "workspace_id": "012345abcdefg",
+    "project_id": "012345abcdefg",
     "environment": "dev",
     "secret_type": "shared",
 

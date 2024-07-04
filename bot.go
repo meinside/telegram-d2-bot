@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	// telegram bot
@@ -17,8 +18,8 @@ import (
 	"github.com/meinside/version-go"
 
 	// infisical
-	"github.com/meinside/infisical-go"
-	"github.com/meinside/infisical-go/helper"
+	infisical "github.com/infisical/go-sdk"
+	"github.com/infisical/go-sdk/packages/models"
 
 	// d2
 	"oss.terrastruct.com/d2/d2compiler"
@@ -72,9 +73,9 @@ type config struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
 
-		WorkspaceID string               `json:"workspace_id"`
-		Environment string               `json:"environment"`
-		SecretType  infisical.SecretType `json:"secret_type"`
+		ProjectID   string `json:"project_id"`
+		Environment string `json:"environment"`
+		SecretType  string `json:"secret_type"`
 
 		BotTokenKeyPath string `json:"bot_token_key_path"`
 	} `json:"infisical,omitempty"`
@@ -88,18 +89,30 @@ func loadConfig(filepath string) (conf config, err error) {
 			if err = json.Unmarshal(bytes, &conf); err == nil {
 				if conf.BotToken == "" && conf.Infisical != nil {
 					// read bot token from infisical
-					var botToken string
+					client := infisical.NewInfisicalClient(infisical.Config{
+						SiteUrl: "https://app.infisical.com",
+					})
 
-					botToken, err = helper.Value(
-						conf.Infisical.ClientID,
-						conf.Infisical.ClientSecret,
-						conf.Infisical.WorkspaceID,
-						conf.Infisical.Environment,
-						conf.Infisical.SecretType,
-						conf.Infisical.BotTokenKeyPath,
-					)
+					_, err = client.Auth().UniversalAuthLogin(conf.Infisical.ClientID, conf.Infisical.ClientSecret)
+					if err != nil {
+						return config{}, fmt.Errorf("failed to authenticate with Infisical: %s", err)
+					}
 
-					conf.BotToken = botToken
+					keyPath := conf.Infisical.BotTokenKeyPath
+
+					var secret models.Secret
+					secret, err = client.Secrets().Retrieve(infisical.RetrieveSecretOptions{
+						ProjectID:   conf.Infisical.ProjectID,
+						Type:        conf.Infisical.SecretType,
+						Environment: conf.Infisical.Environment,
+						SecretPath:  path.Dir(keyPath),
+						SecretKey:   path.Base(keyPath),
+					})
+					if err != nil {
+						return config{}, fmt.Errorf("failed to retrieve telegram bot token from Infisical: %s", err)
+					}
+
+					conf.BotToken = secret.SecretValue
 				}
 			}
 		}
