@@ -224,6 +224,8 @@ func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text strin
 		}
 	} else {
 		log.Printf("failed to render message: %s", err)
+
+		replyError(bot, chatID, messageID, fmt.Sprintf("Failed to render message: %s", err))
 	}
 }
 
