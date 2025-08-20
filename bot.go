@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	// telegram bot
@@ -89,9 +90,12 @@ func loadConfig(filepath string) (conf config, err error) {
 			if err = json.Unmarshal(bytes, &conf); err == nil {
 				if conf.BotToken == "" && conf.Infisical != nil {
 					// read bot token from infisical
-					client := infisical.NewInfisicalClient(context.TODO(), infisical.Config{
-						SiteUrl: "https://app.infisical.com",
-					})
+					client := infisical.NewInfisicalClient(
+						context.TODO(),
+						infisical.Config{
+							SiteUrl: "https://app.infisical.com",
+						},
+					)
 
 					_, err = client.Auth().UniversalAuthLogin(conf.Infisical.ClientID, conf.Infisical.ClientSecret)
 					if err != nil {
@@ -141,16 +145,34 @@ func toPointer[T any](v T) *T {
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
 func renderDiagram(conf config, str string) (bs []byte, err error) {
 	var graph *d2graph.Graph
-	if graph, _, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16Pos: true}); err == nil {
+	if graph, _, err = d2compiler.Compile(
+		"",
+		strings.NewReader(str),
+		&d2compiler.CompileOptions{UTF16Pos: true},
+	); err == nil {
 		var ruler *textmeasure.Ruler
 		if ruler, err = textmeasure.NewRuler(); err == nil {
-			if err = graph.SetDimensions(nil, ruler, nil); err == nil { // fontFamily = nil: use default
+			if err = graph.SetDimensions(
+				nil,
+				ruler,
+				nil, // NOTE: use default
+				nil, // NOTE: use default
+			); err == nil {
 				ctx := context.Background()
 				defer ctx.Done()
 
-				if err = d2dagrelayout.Layout(ctx, graph, nil); err == nil { // opts = nil: use default
+				if err = d2dagrelayout.Layout(
+					ctx,
+					graph,
+					nil, // NOTE: use default
+				); err == nil {
 					var diagram *d2target.Diagram
-					if diagram, err = d2exporter.Export(ctx, graph, nil); err == nil { // fontFamily = nil: use default
+					if diagram, err = d2exporter.Export(
+						ctx,
+						graph,
+						nil, // NOTE: use default
+						nil, // NOTE: use default
+					); err == nil {
 						if bs, err = d2svg.Render(diagram, &d2svg.RenderOpts{
 							Pad:         toPointer(renderPadding),
 							Sketch:      toPointer(conf.Sketch),
@@ -181,22 +203,22 @@ func renderDiagram(conf config, str string) (bs []byte, err error) {
 }
 
 // checks if given username is allowed.
-func isUsernameAllowed(conf config, username *string) bool {
+func isUsernameAllowed(
+	conf config,
+	username *string,
+) bool {
 	if username == nil {
 		return false
 	}
 
-	for _, v := range conf.AllowedIDs {
-		if v == *username {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(conf.AllowedIDs, *username)
 }
 
 // checks if given update is allowed.
-func isUpdateAllowed(conf config, update tg.Update) bool {
+func isUpdateAllowed(
+	conf config,
+	update tg.Update,
+) bool {
 	if from := update.GetFrom(); from != nil {
 		return isUsernameAllowed(conf, from.Username)
 	}
@@ -205,7 +227,12 @@ func isUpdateAllowed(conf config, update tg.Update) bool {
 }
 
 // renders a .png file with given `text` and reply to `messageId` with it.
-func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text string) {
+func replyRendered(
+	bot *tg.Bot,
+	conf config,
+	chatID, messageID int64,
+	text string,
+) {
 	// typing...
 	_ = bot.SendChatAction(chatID, tg.ChatActionTyping, nil)
 
@@ -218,19 +245,32 @@ func replyRendered(bot *tg.Bot, conf config, chatID, messageID int64, text strin
 				SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.Ok {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
 		} else {
-			if reactioned := bot.SetMessageReaction(chatID, messageID, tg.NewMessageReactionWithEmoji("👌")); !reactioned.Ok {
+			if reactioned := bot.SetMessageReaction(
+				chatID,
+				messageID,
+				tg.NewMessageReactionWithEmoji("👌"),
+			); !reactioned.Ok {
 				log.Printf("failed to set reaction: %s", *reactioned.Description)
 			}
 		}
 	} else {
 		log.Printf("failed to render message: %s", err)
 
-		replyError(bot, chatID, messageID, fmt.Sprintf("Failed to render message: %s", err))
+		replyError(
+			bot,
+			chatID,
+			messageID,
+			fmt.Sprintf("Failed to render message: %s", err),
+		)
 	}
 }
 
 // replies to `messageId` with `text`.
-func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
+func replyError(
+	bot *tg.Bot,
+	chatID, messageID int64,
+	text string,
+) {
 	if sent := bot.SendMessage(
 		chatID,
 		text,
@@ -241,7 +281,11 @@ func replyError(bot *tg.Bot, chatID, messageID int64, text string) {
 }
 
 // handles a text message
-func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
+func handleMessage(
+	bot *tg.Bot,
+	conf config,
+	message tg.Message,
+) {
 	username := message.From.Username
 
 	if isUsernameAllowed(conf, username) {
@@ -249,7 +293,13 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 		chatID := message.Chat.ID
 		messageID := message.MessageID
 
-		replyRendered(bot, conf, chatID, messageID, txt)
+		replyRendered(
+			bot,
+			conf,
+			chatID,
+			messageID,
+			txt,
+		)
 	} else {
 		if conf.IsVerbose {
 			log.Printf("message not allowed: %+v", message)
@@ -258,7 +308,11 @@ func handleMessage(bot *tg.Bot, conf config, message tg.Message) {
 }
 
 // handles a document message
-func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
+func handleDocument(
+	bot *tg.Bot,
+	conf config,
+	message tg.Message,
+) {
 	username := message.From.Username
 
 	if isUsernameAllowed(conf, username) {
@@ -281,7 +335,12 @@ func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
 			}
 		} else {
 			if document.FileName != nil {
-				replyError(bot, chatID, messageID, fmt.Sprintf("'%s' does not seem to be a .d2 file.", *document.FileName))
+				replyError(
+					bot,
+					chatID,
+					messageID,
+					fmt.Sprintf("'%s' does not seem to be a .d2 file.", *document.FileName),
+				)
 			}
 		}
 	} else {
@@ -292,13 +351,22 @@ func handleDocument(bot *tg.Bot, conf config, message tg.Message) {
 }
 
 // handles a non-supported message
-func handleNoSupport(bot *tg.Bot, conf config, update tg.Update) {
+func handleNoSupport(
+	bot *tg.Bot,
+	conf config,
+	update tg.Update,
+) {
 	if isUpdateAllowed(conf, update) {
 		if message, _ := update.GetMessage(); message != nil {
 			chatID := message.Chat.ID
 			messageID := message.MessageID
 
-			replyError(bot, chatID, messageID, messageNotSupported)
+			replyError(
+				bot,
+				chatID,
+				messageID,
+				messageNotSupported,
+			)
 		} else {
 			log.Printf("no usabale message: %+v", update)
 		}
@@ -310,7 +378,11 @@ func handleNoSupport(bot *tg.Bot, conf config, update tg.Update) {
 }
 
 // handle help command
-func handleHelpCommand(b *tg.Bot, conf config, update tg.Update) {
+func handleHelpCommand(
+	b *tg.Bot,
+	conf config,
+	update tg.Update,
+) {
 	if isUpdateAllowed(conf, update) {
 		if message, _ := update.GetMessage(); message != nil {
 			chatID := message.Chat.ID
@@ -331,7 +403,10 @@ func handleHelpCommand(b *tg.Bot, conf config, update tg.Update) {
 }
 
 // handle privacy command
-func handlePrivacyCommand(b *tg.Bot, update tg.Update) {
+func handlePrivacyCommand(
+	b *tg.Bot,
+	update tg.Update,
+) {
 	if message, _ := update.GetMessage(); message != nil {
 		chatID := message.Chat.ID
 
@@ -346,7 +421,12 @@ func handlePrivacyCommand(b *tg.Bot, update tg.Update) {
 }
 
 // handle no matching command
-func handleNoMatchingCommand(b *tg.Bot, conf config, update tg.Update, cmd string) {
+func handleNoMatchingCommand(
+	b *tg.Bot,
+	conf config,
+	update tg.Update,
+	cmd string,
+) {
 	if isUpdateAllowed(conf, update) {
 		if message, _ := update.GetMessage(); message != nil {
 			chatID := message.Chat.ID
@@ -372,8 +452,7 @@ func getURL(url string) (content []byte, err error) {
 	if res, err = http.Get(url); err != nil {
 		return nil, err
 	}
-
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	content, err = io.ReadAll(res.Body)
 	if err != nil {
@@ -401,7 +480,12 @@ func runBot(confFilepath string) {
 				}
 
 				// set update handlers
-				client.SetMessageHandler(func(b *tg.Bot, update tg.Update, message tg.Message, edited bool) {
+				client.SetMessageHandler(func(
+					b *tg.Bot,
+					update tg.Update,
+					message tg.Message,
+					edited bool,
+				) {
 					if message.HasText() {
 						handleMessage(b, conf, message)
 					} else if message.HasDocument() {
@@ -410,28 +494,48 @@ func runBot(confFilepath string) {
 				})
 
 				// set command handlers
-				client.AddCommandHandler(commandStart, func(b *tg.Bot, update tg.Update, args string) {
+				client.AddCommandHandler(commandStart, func(
+					b *tg.Bot,
+					update tg.Update,
+					args string,
+				) {
 					handleHelpCommand(b, conf, update)
 				})
-				client.AddCommandHandler(commandHelp, func(b *tg.Bot, update tg.Update, args string) {
+				client.AddCommandHandler(commandHelp, func(
+					b *tg.Bot,
+					update tg.Update,
+					args string,
+				) {
 					handleHelpCommand(b, conf, update)
 				})
-				client.AddCommandHandler(commandPrivacy, func(b *tg.Bot, update tg.Update, args string) {
+				client.AddCommandHandler(commandPrivacy, func(
+					b *tg.Bot,
+					update tg.Update,
+					args string,
+				) {
 					handlePrivacyCommand(b, update)
 				})
-				client.SetNoMatchingCommandHandler(func(b *tg.Bot, update tg.Update, cmd, args string) {
+				client.SetNoMatchingCommandHandler(func(
+					b *tg.Bot,
+					update tg.Update,
+					cmd, args string,
+				) {
 					handleNoMatchingCommand(b, conf, update, cmd)
 				})
 
 				// start polling
-				client.StartPollingUpdates(0, interval, func(b *tg.Bot, update tg.Update, err error) {
-					if err != nil {
-						log.Printf("failed to poll updates: %s", err.Error())
-					} else {
-						// do nothing (messages are handled by specified update handler)
-						handleNoSupport(b, conf, update)
-					}
-				})
+				client.StartPollingUpdates(
+					0,
+					interval,
+					func(b *tg.Bot, update tg.Update, err error) {
+						if err != nil {
+							log.Printf("failed to poll updates: %s", err.Error())
+						} else {
+							// do nothing (messages are handled by specified update handler)
+							handleNoSupport(b, conf, update)
+						}
+					},
+				)
 			} else {
 				log.Printf("failed to delete webhook: %s", *deleted.Description)
 			}
