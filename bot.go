@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	// telegram bot
@@ -144,13 +145,13 @@ func renderDiagram(conf config, str string) (bs []byte, err error) {
 	if graph, _, err = d2compiler.Compile("", strings.NewReader(str), &d2compiler.CompileOptions{UTF16Pos: true}); err == nil {
 		var ruler *textmeasure.Ruler
 		if ruler, err = textmeasure.NewRuler(); err == nil {
-			if err = graph.SetDimensions(nil, ruler, nil); err == nil { // fontFamily = nil: use default
+			if err = graph.SetDimensions(nil, ruler, nil, nil); err == nil { // fontFamily = nil: use default
 				ctx := context.Background()
 				defer ctx.Done()
 
 				if err = d2dagrelayout.Layout(ctx, graph, nil); err == nil { // opts = nil: use default
 					var diagram *d2target.Diagram
-					if diagram, err = d2exporter.Export(ctx, graph, nil); err == nil { // fontFamily = nil: use default
+					if diagram, err = d2exporter.Export(ctx, graph, nil, nil); err == nil { // fontFamily = nil: use default
 						if bs, err = d2svg.Render(diagram, &d2svg.RenderOpts{
 							Pad:         toPointer(renderPadding),
 							Sketch:      toPointer(conf.Sketch),
@@ -186,13 +187,7 @@ func isUsernameAllowed(conf config, username *string) bool {
 		return false
 	}
 
-	for _, v := range conf.AllowedIDs {
-		if v == *username {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(conf.AllowedIDs, *username)
 }
 
 // checks if given update is allowed.
@@ -372,8 +367,7 @@ func getURL(url string) (content []byte, err error) {
 	if res, err = http.Get(url); err != nil {
 		return nil, err
 	}
-
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	content, err = io.ReadAll(res.Body)
 	if err != nil {
