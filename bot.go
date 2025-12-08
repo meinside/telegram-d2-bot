@@ -2,25 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path"
 	"slices"
 	"strings"
+	"time"
 
 	// telegram bot
 	tg "github.com/meinside/telegram-bot-go"
 
 	// version string
 	"github.com/meinside/version-go"
-
-	// infisical
-	infisical "github.com/infisical/go-sdk"
-	"github.com/infisical/go-sdk/packages/models"
 
 	// d2
 	"oss.terrastruct.com/d2/d2compiler"
@@ -31,14 +25,15 @@ import (
 	"oss.terrastruct.com/d2/d2target"
 	"oss.terrastruct.com/d2/lib/png"
 	"oss.terrastruct.com/d2/lib/textmeasure"
-
-	// others
-	"github.com/tailscale/hujson"
 )
 
 // constants
 const (
 	defaultPollingInterval = 5
+
+	requestTimeoutSeconds          = 30
+	longRequestTimeoutSeconds      = 60
+	ignorableRequestTimeoutSeconds = 3
 
 	commandStart   = "/start"
 	commandHelp    = "/help"
@@ -53,89 +48,6 @@ const (
 	renderPadding int64 = 40
 )
 
-// struct for configuration
-type config struct {
-	// configurations
-	AllowedIDs      []string `json:"allowed_ids"`
-	MonitorInterval int      `json:"monitor_interval"`
-
-	// d2 rendering style
-	ThemeID int64 `json:"theme_id,omitempty"` // NOTE: pick `ID` from https://github.com/terrastruct/d2/tree/master/d2themes/d2themescatalog
-	Sketch  bool  `json:"sketch,omitempty"`
-
-	// logging
-	IsVerbose bool `json:"is_verbose,omitempty"`
-
-	// Bot API token
-	BotToken string `json:"bot_token,omitempty"`
-
-	// or Infisical settings
-	Infisical *struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-
-		ProjectID   string `json:"project_id"`
-		Environment string `json:"environment"`
-		SecretType  string `json:"secret_type"`
-
-		BotTokenKeyPath string `json:"bot_token_key_path"`
-	} `json:"infisical,omitempty"`
-}
-
-// read config file
-func loadConfig(filepath string) (conf config, err error) {
-	var bytes []byte
-	if bytes, err = os.ReadFile(filepath); err == nil {
-		if bytes, err = standardizeJSON(bytes); err == nil {
-			if err = json.Unmarshal(bytes, &conf); err == nil {
-				if conf.BotToken == "" && conf.Infisical != nil {
-					// read bot token from infisical
-					client := infisical.NewInfisicalClient(
-						context.TODO(),
-						infisical.Config{
-							SiteUrl: "https://app.infisical.com",
-						},
-					)
-
-					_, err = client.Auth().UniversalAuthLogin(conf.Infisical.ClientID, conf.Infisical.ClientSecret)
-					if err != nil {
-						return config{}, fmt.Errorf("failed to authenticate with Infisical: %s", err)
-					}
-
-					keyPath := conf.Infisical.BotTokenKeyPath
-
-					var secret models.Secret
-					secret, err = client.Secrets().Retrieve(infisical.RetrieveSecretOptions{
-						ProjectID:   conf.Infisical.ProjectID,
-						Type:        conf.Infisical.SecretType,
-						Environment: conf.Infisical.Environment,
-						SecretPath:  path.Dir(keyPath),
-						SecretKey:   path.Base(keyPath),
-					})
-					if err != nil {
-						return config{}, fmt.Errorf("failed to retrieve telegram bot token from Infisical: %s", err)
-					}
-
-					conf.BotToken = secret.SecretValue
-				}
-			}
-		}
-	}
-
-	return conf, err
-}
-
-// standardize given JSON (JWCC) bytes
-func standardizeJSON(b []byte) ([]byte, error) {
-	ast, err := hujson.Parse(b)
-	if err != nil {
-		return b, err
-	}
-	ast.Standardize()
-
-	return ast.Pack(), nil
-}
-
 // convert any value to a pointer
 func toPointer[T any](v T) *T {
 	val := v
@@ -143,7 +55,14 @@ func toPointer[T any](v T) *T {
 }
 
 // renderDiagram returns a bytes array of the rendered svg diagram in .png format.
-func renderDiagram(conf config, str string) (bs []byte, err error) {
+func renderDiagram(
+	ctx context.Context,
+	conf config,
+	str string,
+) (bs []byte, err error) {
+	ctxRender, cancelRender := context.WithTimeout(ctx, longRequestTimeoutSeconds*time.Second)
+	defer cancelRender()
+
 	var graph *d2graph.Graph
 	if graph, _, err = d2compiler.Compile(
 		"",
@@ -158,17 +77,14 @@ func renderDiagram(conf config, str string) (bs []byte, err error) {
 				nil, // NOTE: use default
 				nil, // NOTE: use default
 			); err == nil {
-				ctx := context.Background()
-				defer ctx.Done()
-
 				if err = d2dagrelayout.Layout(
-					ctx,
+					ctxRender,
 					graph,
 					nil, // NOTE: use default
 				); err == nil {
 					var diagram *d2target.Diagram
 					if diagram, err = d2exporter.Export(
-						ctx,
+						ctxRender,
 						graph,
 						nil, // NOTE: use default
 						nil, // NOTE: use default
@@ -228,24 +144,36 @@ func isUpdateAllowed(
 
 // renders a .png file with given `text` and reply to `messageId` with it.
 func replyRendered(
+	ctx context.Context,
 	bot *tg.Bot,
 	conf config,
 	chatID, messageID int64,
 	text string,
 ) {
 	// typing...
-	_ = bot.SendChatAction(chatID, tg.ChatActionTyping, nil)
+	ctxAction, cancelAction := context.WithTimeout(ctx, ignorableRequestTimeoutSeconds*time.Second)
+	defer cancelAction()
+	_ = bot.SendChatAction(ctxAction, chatID, tg.ChatActionTyping, nil)
 
 	// render text into .svg and convert it to .png bytes
-	if bs, err := renderDiagram(conf, text); err == nil {
+	if bs, err := renderDiagram(ctx, conf, text); err == nil {
+		// send document
+		ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+		defer cancelSend()
 		if sent := bot.SendDocument(
+			ctxSend,
 			chatID,
 			tg.NewInputFileFromBytes(bs),
 			tg.OptionsSendDocument{}.
-				SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.Ok {
+				SetReplyParameters(tg.NewReplyParameters(messageID)),
+		); !sent.Ok {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
 		} else {
+			// add reaction
+			ctxReaction, cancelReaction := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+			defer cancelReaction()
 			if reactioned := bot.SetMessageReaction(
+				ctxReaction,
 				chatID,
 				messageID,
 				tg.NewMessageReactionWithEmoji("👌"),
@@ -257,6 +185,7 @@ func replyRendered(
 		log.Printf("failed to render message: %s", err)
 
 		replyError(
+			ctx,
 			bot,
 			chatID,
 			messageID,
@@ -267,11 +196,15 @@ func replyRendered(
 
 // replies to `messageId` with `text`.
 func replyError(
+	ctx context.Context,
 	bot *tg.Bot,
 	chatID, messageID int64,
 	text string,
 ) {
+	ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+	defer cancelSend()
 	if sent := bot.SendMessage(
+		ctxSend,
 		chatID,
 		text,
 		tg.OptionsSendMessage{}.
@@ -282,6 +215,7 @@ func replyError(
 
 // handles a text message
 func handleMessage(
+	ctx context.Context,
 	bot *tg.Bot,
 	conf config,
 	message tg.Message,
@@ -294,6 +228,7 @@ func handleMessage(
 		messageID := message.MessageID
 
 		replyRendered(
+			ctx,
 			bot,
 			conf,
 			chatID,
@@ -309,6 +244,7 @@ func handleMessage(
 
 // handles a document message
 func handleDocument(
+	ctx context.Context,
 	bot *tg.Bot,
 	conf config,
 	message tg.Message,
@@ -321,12 +257,15 @@ func handleDocument(
 		messageID := message.MessageID
 
 		if document.FileName != nil && strings.HasSuffix(*document.FileName, ".d2") {
-			if file := bot.GetFile(document.FileID); file.Ok {
+			// get file info
+			ctxFile, cancelFile := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+			defer cancelFile()
+			if file := bot.GetFile(ctxFile, document.FileID); file.Ok {
 				url := bot.GetFileURL(*file.Result)
-				if content, err := getURL(url); err == nil {
+				if content, err := getBytesFromURL(ctx, url); err == nil {
 					message := string(content)
 
-					replyRendered(bot, conf, chatID, messageID, message)
+					replyRendered(ctx, bot, conf, chatID, messageID, message)
 				} else {
 					log.Printf("failed to fetch '%s': %s", url, err)
 				}
@@ -336,6 +275,7 @@ func handleDocument(
 		} else {
 			if document.FileName != nil {
 				replyError(
+					ctx,
 					bot,
 					chatID,
 					messageID,
@@ -352,6 +292,7 @@ func handleDocument(
 
 // handles a non-supported message
 func handleNoSupport(
+	ctx context.Context,
 	bot *tg.Bot,
 	conf config,
 	update tg.Update,
@@ -362,6 +303,7 @@ func handleNoSupport(
 			messageID := message.MessageID
 
 			replyError(
+				ctx,
 				bot,
 				chatID,
 				messageID,
@@ -379,6 +321,7 @@ func handleNoSupport(
 
 // handle help command
 func handleHelpCommand(
+	ctx context.Context,
 	b *tg.Bot,
 	conf config,
 	update tg.Update,
@@ -387,7 +330,10 @@ func handleHelpCommand(
 		if message, _ := update.GetMessage(); message != nil {
 			chatID := message.Chat.ID
 
+			ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+			defer cancelSend()
 			if sent := b.SendMessage(
+				ctxSend,
 				chatID,
 				messageHelp,
 				tg.OptionsSendMessage{}.
@@ -404,13 +350,17 @@ func handleHelpCommand(
 
 // handle privacy command
 func handlePrivacyCommand(
+	ctx context.Context,
 	b *tg.Bot,
 	update tg.Update,
 ) {
 	if message, _ := update.GetMessage(); message != nil {
 		chatID := message.Chat.ID
 
+		ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+		defer cancelSend()
 		if sent := b.SendMessage(
+			ctxSend,
 			chatID,
 			messagePrivacy,
 			tg.OptionsSendMessage{}.
@@ -422,6 +372,7 @@ func handlePrivacyCommand(
 
 // handle no matching command
 func handleNoMatchingCommand(
+	ctx context.Context,
 	b *tg.Bot,
 	conf config,
 	update tg.Update,
@@ -431,7 +382,10 @@ func handleNoMatchingCommand(
 		if message, _ := update.GetMessage(); message != nil {
 			chatID := message.Chat.ID
 
+			ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+			defer cancelSend()
 			if sent := b.SendMessage(
+				ctxSend,
 				chatID,
 				fmt.Sprintf(messageNoMatchingCommand, cmd),
 				tg.OptionsSendMessage{}.
@@ -447,13 +401,27 @@ func handleNoMatchingCommand(
 }
 
 // get file bytes from given url
-func getURL(url string) (content []byte, err error) {
+func getBytesFromURL(
+	ctx context.Context,
+	url string,
+) (content []byte, err error) {
+	ctxBytes, cancelBytes := context.WithTimeout(ctx, longRequestTimeoutSeconds*time.Second)
+	defer cancelBytes()
+
+	// create request
+	var req *http.Request
+	if req, err = http.NewRequestWithContext(ctxBytes, http.MethodGet, url, nil); err != nil {
+		return nil, err
+	}
+
+	// send request
 	var res *http.Response
-	if res, err = http.Get(url); err != nil {
+	if res, err = http.DefaultClient.Do(req); err != nil {
 		return nil, err
 	}
 	defer func() { _ = res.Body.Close() }()
 
+	// read bytes from response
 	content, err = io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
@@ -464,14 +432,22 @@ func getURL(url string) (content []byte, err error) {
 
 // runs the bot with config file's path
 func runBot(confFilepath string) {
-	if conf, err := loadConfig(confFilepath); err != nil {
+	ctx := context.Background()
+
+	if conf, err := loadConfig(ctx, confFilepath); err != nil {
 		panic(err)
 	} else {
 		client := tg.NewClient(conf.BotToken)
 		client.Verbose = conf.IsVerbose
 
-		if me := client.GetMe(); me.Ok {
-			if deleted := client.DeleteWebhook(false); deleted.Ok {
+		// get bot info
+		ctxBotInfo, cancelBotInfo := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+		defer cancelBotInfo()
+		if me := client.GetMe(ctxBotInfo); me.Ok {
+			// delete webhook before polling updates
+			ctxDeleteWebhook, cancelDeleteWebhook := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
+			defer cancelDeleteWebhook()
+			if deleted := client.DeleteWebhook(ctxDeleteWebhook, false); deleted.Ok {
 				log.Printf("starting bot %s: @%s (%s)", version.Minimum(), *me.Result.Username, me.Result.FirstName)
 
 				interval := conf.MonitorInterval
@@ -487,9 +463,9 @@ func runBot(confFilepath string) {
 					edited bool,
 				) {
 					if message.HasText() {
-						handleMessage(b, conf, message)
+						handleMessage(ctx, b, conf, message)
 					} else if message.HasDocument() {
-						handleDocument(b, conf, message)
+						handleDocument(ctx, b, conf, message)
 					}
 				})
 
@@ -499,28 +475,28 @@ func runBot(confFilepath string) {
 					update tg.Update,
 					args string,
 				) {
-					handleHelpCommand(b, conf, update)
+					handleHelpCommand(ctx, b, conf, update)
 				})
 				client.AddCommandHandler(commandHelp, func(
 					b *tg.Bot,
 					update tg.Update,
 					args string,
 				) {
-					handleHelpCommand(b, conf, update)
+					handleHelpCommand(ctx, b, conf, update)
 				})
 				client.AddCommandHandler(commandPrivacy, func(
 					b *tg.Bot,
 					update tg.Update,
 					args string,
 				) {
-					handlePrivacyCommand(b, update)
+					handlePrivacyCommand(ctx, b, update)
 				})
 				client.SetNoMatchingCommandHandler(func(
 					b *tg.Bot,
 					update tg.Update,
 					cmd, args string,
 				) {
-					handleNoMatchingCommand(b, conf, update, cmd)
+					handleNoMatchingCommand(ctx, b, conf, update, cmd)
 				})
 
 				// start polling
@@ -532,7 +508,7 @@ func runBot(confFilepath string) {
 							log.Printf("failed to poll updates: %s", err.Error())
 						} else {
 							// do nothing (messages are handled by specified update handler)
-							handleNoSupport(b, conf, update)
+							handleNoSupport(ctx, b, conf, update)
 						}
 					},
 				)
