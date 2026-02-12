@@ -153,31 +153,31 @@ func replyRendered(
 	// typing...
 	ctxAction, cancelAction := context.WithTimeout(ctx, ignorableRequestTimeoutSeconds*time.Second)
 	defer cancelAction()
-	_ = bot.SendChatAction(ctxAction, chatID, tg.ChatActionTyping, nil)
+	_, _ = bot.SendChatAction(ctxAction, chatID, tg.ChatActionTyping, nil)
 
 	// render text into .svg and convert it to .png bytes
 	if bs, err := renderDiagram(ctx, conf, text); err == nil {
 		// send document
 		ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 		defer cancelSend()
-		if sent := bot.SendDocument(
+		if sent, _ := bot.SendDocument(
 			ctxSend,
 			chatID,
 			tg.NewInputFileFromBytes(bs),
 			tg.OptionsSendDocument{}.
 				SetReplyParameters(tg.NewReplyParameters(messageID)),
-		); !sent.Ok {
+		); !sent.OK {
 			log.Printf("failed to send rendered image: %s", *sent.Description)
 		} else {
 			// add reaction
 			ctxReaction, cancelReaction := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 			defer cancelReaction()
-			if reactioned := bot.SetMessageReaction(
+			if reactioned, _ := bot.SetMessageReaction(
 				ctxReaction,
 				chatID,
 				messageID,
 				tg.NewMessageReactionWithEmoji("👌"),
-			); !reactioned.Ok {
+			); !reactioned.OK {
 				log.Printf("failed to set reaction: %s", *reactioned.Description)
 			}
 		}
@@ -203,12 +203,12 @@ func replyError(
 ) {
 	ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 	defer cancelSend()
-	if sent := bot.SendMessage(
+	if sent, _ := bot.SendMessage(
 		ctxSend,
 		chatID,
 		text,
 		tg.OptionsSendMessage{}.
-			SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.Ok {
+			SetReplyParameters(tg.NewReplyParameters(messageID))); !sent.OK {
 		log.Printf("failed to send rendered image: %s", *sent.Description)
 	}
 }
@@ -260,7 +260,7 @@ func handleDocument(
 			// get file info
 			ctxFile, cancelFile := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 			defer cancelFile()
-			if file := bot.GetFile(ctxFile, document.FileID); file.Ok {
+			if file, _ := bot.GetFile(ctxFile, document.FileID); file.OK {
 				url := bot.GetFileURL(*file.Result)
 				if content, err := getBytesFromURL(ctx, url); err == nil {
 					message := string(content)
@@ -332,12 +332,12 @@ func handleHelpCommand(
 
 			ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 			defer cancelSend()
-			if sent := b.SendMessage(
+			if sent, _ := b.SendMessage(
 				ctxSend,
 				chatID,
 				messageHelp,
 				tg.OptionsSendMessage{}.
-					SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+					SetParseMode(tg.ParseModeMarkdownV2)); !sent.OK {
 				log.Printf("failed to send help message: %s", *sent.Description)
 			}
 		}
@@ -359,12 +359,12 @@ func handlePrivacyCommand(
 
 		ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 		defer cancelSend()
-		if sent := b.SendMessage(
+		if sent, _ := b.SendMessage(
 			ctxSend,
 			chatID,
 			messagePrivacy,
 			tg.OptionsSendMessage{}.
-				SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+				SetParseMode(tg.ParseModeMarkdownV2)); !sent.OK {
 			log.Printf("failed to send privacy policy: %s", *sent.Description)
 		}
 	}
@@ -384,12 +384,12 @@ func handleNoMatchingCommand(
 
 			ctxSend, cancelSend := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 			defer cancelSend()
-			if sent := b.SendMessage(
+			if sent, _ := b.SendMessage(
 				ctxSend,
 				chatID,
 				fmt.Sprintf(messageNoMatchingCommand, cmd),
 				tg.OptionsSendMessage{}.
-					SetParseMode(tg.ParseModeMarkdownV2)); !sent.Ok {
+					SetParseMode(tg.ParseModeMarkdownV2)); !sent.OK {
 				log.Printf("failed to send no-matching-command message: %s", *sent.Description)
 			}
 		}
@@ -443,11 +443,11 @@ func runBot(confFilepath string) {
 		// get bot info
 		ctxBotInfo, cancelBotInfo := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 		defer cancelBotInfo()
-		if me := client.GetMe(ctxBotInfo); me.Ok {
+		if me, _ := client.GetMe(ctxBotInfo); me.OK {
 			// delete webhook before polling updates
 			ctxDeleteWebhook, cancelDeleteWebhook := context.WithTimeout(ctx, requestTimeoutSeconds*time.Second)
 			defer cancelDeleteWebhook()
-			if deleted := client.DeleteWebhook(ctxDeleteWebhook, false); deleted.Ok {
+			if deleted, _ := client.DeleteWebhook(ctxDeleteWebhook, false); deleted.OK {
 				log.Printf("starting bot %s: @%s (%s)", version.Minimum(), *me.Result.Username, me.Result.FirstName)
 
 				interval := conf.MonitorInterval
