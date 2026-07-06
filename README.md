@@ -60,7 +60,7 @@ You can use [Infisical](https://infisical.com/) for retrieving your bot token an
 
 ## Other Dependencies
 
-[Playwright](https://github.com/playwright-community/playwright-go) is needed for exporting .png files:
+[Playwright](https://github.com/mxschmitt/playwright-go) is needed for exporting .png files:
 
 ```bash
 $ npx playwright install-deps

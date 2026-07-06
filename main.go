@@ -6,7 +6,7 @@ import (
 	"os"
 
 	// playwright
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 const (
