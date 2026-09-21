@@ -17,14 +17,12 @@ import (
 	"github.com/meinside/version-go"
 
 	// d2
-	"oss.terrastruct.com/d2/d2compiler"
-	"oss.terrastruct.com/d2/d2exporter"
-	"oss.terrastruct.com/d2/d2graph"
-	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
-	"oss.terrastruct.com/d2/d2renderers/d2svg"
-	"oss.terrastruct.com/d2/d2target"
-	"oss.terrastruct.com/d2/lib/png"
-	"oss.terrastruct.com/d2/lib/textmeasure"
+	"github.com/d2lang/d2/d2compiler"
+	"github.com/d2lang/d2/d2exporter"
+	"github.com/d2lang/d2/d2graph"
+	"github.com/d2lang/d2/d2layouts/d2dagrelayout"
+	"github.com/d2lang/d2/d2target"
+	"github.com/d2lang/d2/lib/textmeasure"
 )
 
 // constants
@@ -39,7 +37,7 @@ const (
 	commandHelp    = "/help"
 	commandPrivacy = "/privacy"
 
-	messageHelp = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/terrastruct/d2)\-generated \.svg files in \.png format\.
+	messageHelp = `This is a [Telegram Bot](https://github\.com/meinside/telegram\-d2\-bot) which replies to your messages with [D2](https://github\.com/d2lang/d2)\-generated diagrams in \.png format\.
 `
 	messagePrivacy           = `[Privacy Policy](https://github\.com/meinside/telegram\-d2\-bot/raw/master/PRIVACY\.md)`
 	messageNotSupported      = "This type of message is not supported (yet)."
@@ -54,7 +52,10 @@ func toPointer[T any](v T) *T {
 	return &val
 }
 
-// renderDiagram returns a bytes array of the rendered svg diagram in .png format.
+// renderDiagram returns a bytes array of the rendered diagram in .png format.
+//
+// NOTE: rasterized by d2's built-in pure-Go renderer (see raster.go), so no
+// headless browser is involved.
 func renderDiagram(
 	ctx context.Context,
 	conf config,
@@ -89,26 +90,8 @@ func renderDiagram(
 						nil, // NOTE: use default
 						nil, // NOTE: use default
 					); err == nil {
-						if bs, err = d2svg.Render(diagram, &d2svg.RenderOpts{
-							Pad:         toPointer(renderPadding),
-							Sketch:      toPointer(conf.Sketch),
-							ThemeID:     toPointer(conf.ThemeID),
-							DarkThemeID: d2svg.DEFAULT_DARK_THEME,
-							Scale:       toPointer(1.0), // 1:1
-						}); err == nil { // opts = nil: use default
-							var pw png.Playwright
-							if pw, err = png.InitPlaywright(); err == nil {
-								defer func() {
-									e := pw.Cleanup()
-									if err == nil {
-										err = e
-									}
-								}()
-
-								if bs, err = png.ConvertSVG(pw.Page, bs); err == nil {
-									return bs, nil
-								}
-							}
+						if bs, err = renderPNG(ctxRender, conf, diagram); err == nil {
+							return bs, nil
 						}
 					}
 				}

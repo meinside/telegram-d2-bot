@@ -2,7 +2,7 @@
 
 A telegram bot which answers with rendered `.svg` files in `.png` format.
 
-Using [terrastruct/d2](https://github.com/terrastruct/d2) for generating .svg files from messages.
+Using [d2lang/d2](https://github.com/d2lang/d2) for generating diagrams from messages, and rendering them to .png with d2's built-in pure-Go renderer (no headless browser).
 
 <img width="631" alt="Screenshot 2022-12-19 at 14 31 53" src="https://user-images.githubusercontent.com/185988/208354666-fe073dbc-105a-44b3-88a0-dce64a454efc.png">
 
@@ -29,7 +29,7 @@ and edit:
 * `bot_token` can be obtained from [bot father](https://t.me/botfather)
 * `allowed_ids` are ids of allowed telegram users who can get responses from this bot
 * `monitor_interval` is the polling interval (in seconds) from telegram API
-* `theme_id` can be retrieved from [these files](https://github.com/terrastruct/d2/tree/master/d2themes/d2themescatalog) (= 0 for default)
+* `theme_id` can be retrieved from [these files](https://github.com/d2lang/d2/tree/master/d2themes/d2themescatalog) (= 0 for default)
 * `sketch` is whether to render results in sketched style
 * `is_verbose` is whether to print verbose messages
 
@@ -60,11 +60,10 @@ You can use [Infisical](https://infisical.com/) for retrieving your bot token an
 
 ## Other Dependencies
 
-[Playwright](https://github.com/mxschmitt/playwright-go) is needed for exporting .png files:
+None. Rendering is done in-process by d2's native renderer.
 
-```bash
-$ npx playwright install-deps
-```
+For labels in scripts which d2's bundled fonts don't cover (Hangul, CJK, …), install a
+system font such as Noto Sans CJK; d2's font fallback picks it up from the host.
 
 ## Build and Run
 
@@ -109,5 +108,5 @@ $ sudo systemctl start telegram-d2-bot.service
 
 - [ ] Add more configurable options.
 - [x] Support uploading .d2 files.
-- [x] Respond with .png files. (Playwright is needed)
+- [x] Respond with .png files.
 
